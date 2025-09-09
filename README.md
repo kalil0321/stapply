@@ -1,17 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Job Application Automation Platform
+
+This is a [Next.js](https://nextjs.org) project that automates job applications using AI and browser automation.
+
+## Features
+
+- **Resume Parsing**: Upload your resume and automatically extract profile information using AI
+- **Profile Management**: Store your personal information, skills, experience, and education
+- **Automated Job Applications**: Apply to jobs automatically using BrowserUse SDK
+- **Multiple Platform Support**: Works with LinkedIn, Indeed, Glassdoor, and company websites
+
+## Environment Setup
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```env
+# BrowserUse API Key for job application automation
+# Get your API key from https://cloud.browser-use.com/
+BROWSER_USE_API_KEY=your_browser_use_api_key_here
+
+# Database connection (optional - currently using localStorage)
+DATABASE_URL=your_database_connection_string_here
+```
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies and run the development server:
 
 ```bash
+npm install
 npm run dev
 # or
-yarn dev
+yarn install && yarn dev
 # or
-pnpm dev
-# or
-bun dev
+pnpm install && pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
