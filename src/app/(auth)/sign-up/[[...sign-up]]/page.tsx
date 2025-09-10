@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Stapply } from "@/components/stapply";
+import { Stapply } from "@/components/logo";
 import { GOOGLE, GITHUB } from "@/components/icons";
 import { authClient } from "@/lib/auth/client";
 
