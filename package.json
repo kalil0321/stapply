@@ -20,10 +20,12 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slider": "^1.3.6",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@stackframe/stack": "^2.8.36",
     "@supabase/supabase-js": "^2.57.2",
     "@tanstack/react-query": "^5.87.1",
+    "@uploadthing/react": "^7.3.3",
     "ai": "^5.0.35",
     "better-auth": "^1.3.8",
     "browser-use-sdk": "^2.0.4",
@@ -40,6 +42,7 @@
     "react-dom": "19.1.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
+    "uploadthing": "^7.7.4",
     "zod": "^4.1.5"
   },
   "devDependencies": {
