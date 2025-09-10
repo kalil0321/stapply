@@ -1,303 +1,515 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { BriefcaseIcon, MapPin, Building, ExternalLink, Calendar, Search, Filter } from "lucide-react";
-import Link from "next/link";
-import { useSavedJobs } from "@/hooks/use-saved-jobs";
-import { SavedJob } from "@/lib/saved-jobs";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    CalendarIcon,
+    ClockIcon,
+    ExternalLinkIcon,
+    MapPinIcon,
+    BriefcaseIcon,
+    CheckCircleIcon,
+    AlertCircleIcon,
+    XCircleIcon,
+    PlusCircleIcon,
+    MoreHorizontalIcon,
+    ArrowRightIcon,
+    BookmarkIcon,
+} from "lucide-react";
+import { useApplications } from "@/hooks/use-applications";
+import { AddApplicationDialog } from "@/components/add-application-dialog";
 
-const statusColors = {
-    saved: "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400",
-    applied: "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400",
-    interview: "bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400",
-    rejected: "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400",
-    accepted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400",
+// Helper function to determine status based on application age
+const getApplicationStatus = (createdAt: string) => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const daysDiff = Math.floor(
+        (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysDiff <= 1) return { status: "applied", label: "Application Sent" };
+    if (daysDiff <= 7) return { status: "under_review", label: "Under Review" };
+    if (daysDiff <= 30)
+        return { status: "interview_scheduled", label: "In Progress" };
+    return { status: "pending", label: "Pending Response" };
 };
 
-const statusLabels = {
-    saved: "Saved",
-    applied: "Applied",
-    interview: "Interview",
-    rejected: "Rejected",
-    accepted: "Accepted",
+const getStatusIcon = (status: string) => {
+    switch (status) {
+        case "accepted":
+            return <CheckCircleIcon className="size-4 text-green-600" />;
+        case "interview_scheduled":
+            return <CalendarIcon className="size-4 text-blue-600" />;
+        case "under_review":
+            return <ClockIcon className="size-4 text-yellow-600" />;
+        case "rejected":
+            return <XCircleIcon className="size-4 text-red-600" />;
+        case "applied":
+            return <AlertCircleIcon className="size-4 text-gray-600" />;
+        default:
+            return <ClockIcon className="size-4 text-gray-600" />;
+    }
 };
 
-const statusOrder = {
-    accepted: 1,
-    interview: 2,
-    applied: 3,
-    rejected: 4,
-    saved: 5,
+const getStatusColor = (status: string) => {
+    switch (status) {
+        case "accepted":
+            return "bg-green-100 text-green-800 border-green-200";
+        case "interview_scheduled":
+            return "bg-blue-100 text-blue-800 border-blue-200";
+        case "under_review":
+            return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        case "rejected":
+            return "bg-red-100 text-red-800 border-red-200";
+        case "applied":
+            return "bg-gray-100 text-gray-800 border-gray-200";
+        default:
+            return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+};
+
+const getNextStep = (status: string, createdAt: string) => {
+    const daysDiff = Math.floor(
+        (new Date().getTime() - new Date(createdAt).getTime()) /
+            (1000 * 60 * 60 * 24)
+    );
+
+    switch (status) {
+        case "applied":
+            return "Waiting for response";
+        case "under_review":
+            return "Application being reviewed";
+        case "interview_scheduled":
+            return "Next step pending";
+        default:
+            return `Applied ${daysDiff} days ago`;
+    }
 };
 
 export default function ApplicationsPage() {
-    const { savedJobs, updateSavedJob, isLoading } = useSavedJobs();
-    const [filterStatus, setFilterStatus] = useState<string>("all");
-    const [searchQuery, setSearchQuery] = useState("");
+    const { applications, isLoading, error, refetchApplications } =
+        useApplications();
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const router = useRouter();
 
-    // Filter out jobs that are just "saved" - only show actual applications
-    const applications = savedJobs.filter(job => 
-        job.applicationStatus !== "saved" || job.appliedAt
-    );
-
-    // Apply filters
-    const filteredApplications = applications.filter(job => {
-        const matchesStatus = filterStatus === "all" || job.applicationStatus === filterStatus;
-        const matchesSearch = searchQuery === "" || 
-            job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            job.company.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        return matchesStatus && matchesSearch;
-    });
-
-    // Sort by status priority and then by date
-    const sortedApplications = filteredApplications.sort((a, b) => {
-        const statusA = statusOrder[a.applicationStatus as keyof typeof statusOrder];
-        const statusB = statusOrder[b.applicationStatus as keyof typeof statusOrder];
-        
-        if (statusA !== statusB) {
-            return statusA - statusB;
-        }
-        
-        // If same status, sort by applied date (most recent first)
-        const dateA = new Date(a.appliedAt || a.savedAt).getTime();
-        const dateB = new Date(b.appliedAt || b.savedAt).getTime();
-        return dateB - dateA;
-    });
-
-    const handleStatusChange = (jobId: string, newStatus: SavedJob["applicationStatus"]) => {
-        const updates: Partial<Pick<SavedJob, "applicationStatus" | "appliedAt">> = {
-            applicationStatus: newStatus,
-        };
-        
-        if (newStatus === "applied" && !savedJobs.find(job => job.id === jobId)?.appliedAt) {
-            updates.appliedAt = new Date().toISOString();
-        }
-        
-        updateSavedJob(jobId, updates);
+    const handleApplicationAdded = () => {
+        refetchApplications();
     };
 
-    const getStatusCounts = () => {
-        const counts = {
-            total: applications.length,
-            applied: applications.filter(job => job.applicationStatus === "applied").length,
-            interview: applications.filter(job => job.applicationStatus === "interview").length,
-            accepted: applications.filter(job => job.applicationStatus === "accepted").length,
-            rejected: applications.filter(job => job.applicationStatus === "rejected").length,
-        };
-        return counts;
+    const handleApplyToSaved = () => {
+        router.push("/saved");
     };
-
-    const counts = getStatusCounts();
 
     if (isLoading) {
         return (
-            <div className="container mx-auto px-6 py-8 max-w-6xl">
-                <div className="text-center">Loading applications...</div>
+            <div className="flex flex-col gap-4 p-6">
+                <div className="flex items-end justify-between border-b border-border pb-4">
+                    <div>
+                        <h1 className="text-xl font-medium">Applications</h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            disabled
+                        >
+                            <BookmarkIcon className="size-4" />
+                            Apply to Saved
+                        </Button>
+                        <Button size="sm" className="gap-2" disabled>
+                            <PlusCircleIcon className="size-4" />
+                            Add Application
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between px-4 py-2 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-8">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                                <Skeleton className="size-3 rounded-full" />
+                                <Skeleton className="h-4 w-16" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-32 w-full rounded-lg" />
+                    ))}
+                </div>
             </div>
         );
     }
 
-    return (
-        <div className="container mx-auto px-6 py-8 max-w-6xl">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <BriefcaseIcon className="h-6 w-6 text-blue-600" />
-                    <h1 className="text-2xl font-semibold">Job Applications</h1>
-                    <Badge variant="outline" className="text-sm">
-                        {filteredApplications.length} {filteredApplications.length === 1 ? 'application' : 'applications'}
-                    </Badge>
+    if (error) {
+        return (
+            <div className="flex flex-col gap-4 p-6">
+                <div className="flex items-end justify-between border-b border-border pb-4">
+                    <div>
+                        <h1 className="text-xl font-medium">Applications</h1>
+                    </div>
                 </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <div className="text-2xl font-bold text-blue-600">{counts.total}</div>
-                        <div className="text-sm text-muted-foreground">Total</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <div className="text-2xl font-bold text-blue-600">{counts.applied}</div>
-                        <div className="text-sm text-muted-foreground">Applied</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <div className="text-2xl font-bold text-purple-600">{counts.interview}</div>
-                        <div className="text-sm text-muted-foreground">Interview</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <div className="text-2xl font-bold text-emerald-600">{counts.accepted}</div>
-                        <div className="text-sm text-muted-foreground">Accepted</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <div className="text-2xl font-bold text-red-600">{counts.rejected}</div>
-                        <div className="text-sm text-muted-foreground">Rejected</div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                        placeholder="Search by job title or company..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-full sm:w-48">
-                        <Filter className="w-4 h-4 mr-2" />
-                        <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Applications</SelectItem>
-                        <SelectItem value="applied">Applied</SelectItem>
-                        <SelectItem value="interview">Interview</SelectItem>
-                        <SelectItem value="accepted">Accepted</SelectItem>
-                        <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-
-            {/* Applications List */}
-            {sortedApplications.length === 0 ? (
                 <div className="text-center py-12">
-                    <BriefcaseIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        {filterStatus === "all" ? "No applications yet" : `No ${filterStatus} applications`}
+                    <AlertCircleIcon className="size-12 text-red-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">
+                        Error Loading Applications
                     </h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">
-                        {filterStatus === "all" 
-                            ? "Start applying to jobs to see your applications here."
-                            : `You don't have any applications with ${filterStatus} status.`
-                        }
+                    <p className="text-muted-foreground mb-4">
+                        There was an error loading your applications. Please try
+                        again.
                     </p>
-                    <Link href="/search">
-                        <Button>
-                            <Search className="w-4 h-4 mr-2" />
-                            Search Jobs
+                    <Button onClick={() => window.location.reload()}>
+                        Try Again
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    // Transform real data to work with existing UI
+    const transformedApplications = applications.map((app: any) => {
+        const statusInfo = getApplicationStatus(app.createdAt);
+        return {
+            id: app.id,
+            jobTitle: app.job?.title || "Unknown Position",
+            company: app.job?.company || "Unknown Company",
+            location: app.job?.location || "Location not specified",
+            salary: "Salary not specified", // Not available in current schema
+            appliedDate: app.createdAt,
+            status: statusInfo.status,
+            statusLabel: statusInfo.label,
+            jobType: app.job?.employment_type || "Full-time",
+            remote: false, // Not available in current schema
+            description: app.job?.description || "",
+            nextStep: getNextStep(statusInfo.status, app.createdAt),
+            applicationUrl: app.job?.link || "#",
+            progress:
+                statusInfo.status === "applied"
+                    ? 25
+                    : statusInfo.status === "under_review"
+                    ? 50
+                    : statusInfo.status === "interview_scheduled"
+                    ? 75
+                    : 0,
+        };
+    });
+
+    const stats = {
+        total: transformedApplications.length,
+        pending: transformedApplications.filter(
+            (app: (typeof transformedApplications)[0]) =>
+                ["applied", "under_review", "interview_scheduled"].includes(
+                    app.status
+                )
+        ).length,
+        offers: transformedApplications.filter(
+            (app: (typeof transformedApplications)[0]) =>
+                app.status === "accepted"
+        ).length,
+        rejected: transformedApplications.filter(
+            (app: (typeof transformedApplications)[0]) =>
+                app.status === "rejected"
+        ).length,
+    };
+
+    const activeApplications = transformedApplications.filter(
+        (app: (typeof transformedApplications)[0]) => app.status !== "rejected"
+    );
+    const rejectedApplications = transformedApplications.filter(
+        (app: (typeof transformedApplications)[0]) => app.status === "rejected"
+    );
+
+    return (
+        <>
+            <div className="flex flex-col gap-4 p-6">
+                {/* Subtle Header */}
+                <div className="flex items-end justify-between border-b border-border pb-4">
+                    <div>
+                        <h1 className="text-xl font-medium">Applications</h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={handleApplyToSaved}
+                        >
+                            <BookmarkIcon className="size-4" />
+                            Apply to Saved
                         </Button>
-                    </Link>
+                        <Button
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => setIsDialogOpen(true)}
+                        >
+                            <PlusCircleIcon className="size-4" />
+                            Add Application
+                        </Button>
+                    </div>
                 </div>
-            ) : (
-                <div className="space-y-4">
-                    {sortedApplications.map((application) => (
-                        <Card key={application.id} className="hover:shadow-md transition-shadow">
-                            <CardContent className="p-6">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between gap-3 mb-3">
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-lg font-semibold leading-tight text-foreground capitalize line-clamp-2 break-words">
-                                                    {application.title}
-                                                </h3>
-                                                <div className="flex items-center gap-2 text-muted-foreground mt-1 min-w-0">
-                                                    <div className="flex items-center gap-1 min-w-0 flex-shrink">
-                                                        <Building className="w-4 h-4 flex-shrink-0" />
-                                                        <span className="text-sm capitalize truncate font-medium">
-                                                            {application.company}
-                                                        </span>
-                                                    </div>
-                                                    {application.location && (
-                                                        <>
-                                                            <span className="text-muted-foreground/50">•</span>
-                                                            <div className="flex items-center gap-1 min-w-0 flex-shrink">
-                                                                <MapPin className="w-4 h-4 flex-shrink-0" />
-                                                                <span className="text-sm capitalize truncate">
-                                                                    {application.location}
-                                                                </span>
+
+                {/* Inline Stats Bar */}
+                <div className="flex items-center justify-between px-4 py-2 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-8">
+                        <div className="flex items-center gap-2">
+                            <div className="size-3 bg-blue-600 rounded-full"></div>
+                            <span className="text-sm font-medium">
+                                {stats.total} Total
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="size-3 bg-yellow-600 rounded-full"></div>
+                            <span className="text-sm font-medium">
+                                {stats.pending} In Progress
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="size-3 bg-green-600 rounded-full"></div>
+                            <span className="text-sm font-medium">
+                                {stats.offers} Offers
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="size-3 bg-red-600 rounded-full"></div>
+                            <span className="text-sm font-medium">
+                                {stats.rejected} Closed
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Active Applications - Table Style */}
+                {activeApplications.length > 0 && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-medium">
+                                Active Applications
+                            </h2>
+                            <div className="text-sm text-muted-foreground">
+                                {activeApplications.length} applications
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {activeApplications.map(
+                                (
+                                    application: (typeof transformedApplications)[0],
+                                    index: number
+                                ) => (
+                                    <div
+                                        key={application.id}
+                                        className="group relative cursor-pointer"
+                                        onClick={() => router.push(`/application/${application.id}`)}
+                                    >
+                                        <div className="pl-6 py-4 bg-background border border-border rounded-lg hover:shadow-sm transition-all group-hover:border-muted-foreground/20">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start gap-4">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                <h3 className="font-semibold text-lg truncate">
+                                                                    {
+                                                                        application.jobTitle
+                                                                    }
+                                                                </h3>
+                                                                <div
+                                                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border ${getStatusColor(
+                                                                        application.status
+                                                                    )}`}
+                                                                >
+                                                                    {getStatusIcon(
+                                                                        application.status
+                                                                    )}
+                                                                    {
+                                                                        application.statusLabel
+                                                                    }
+                                                                </div>
                                                             </div>
-                                                        </>
-                                                    )}
+
+                                                            <div className="flex items-center gap-6 text-sm text-muted-foreground mb-2">
+                                                                <div className="flex items-center gap-1">
+                                                                    <BriefcaseIcon className="size-3" />
+                                                                    {
+                                                                        application.company
+                                                                    }
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <MapPinIcon className="size-3" />
+                                                                    {
+                                                                        application.location
+                                                                    }
+                                                                    {application.jobType && (
+                                                                        <Badge
+                                                                            variant="outline"
+                                                                            className="text-xs ml-1"
+                                                                        >
+                                                                            {
+                                                                                application.jobType
+                                                                            }
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <CalendarIcon className="size-3" />
+                                                                    {new Date(
+                                                                        application.appliedDate
+                                                                    ).toLocaleDateString()}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="flex items-center gap-1 text-xs text-muted-foreground font-bold">
+                                                                    <ClockIcon className="size-3" />
+                                                                    <span>
+                                                                        {
+                                                                            application.nextStep
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                                <ArrowRightIcon className="size-3 text-muted-foreground" />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity px-4">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                            >
+                                                                <MoreHorizontalIcon className="size-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="gap-1"
+                                                                onClick={() =>
+                                                                    window.open(
+                                                                        application.applicationUrl,
+                                                                        "_blank"
+                                                                    )
+                                                                }
+                                                            >
+                                                                <ExternalLinkIcon className="size-3" />
+                                                                View job
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <Badge className={statusColors[application.applicationStatus]}>
-                                                {statusLabels[application.applicationStatus]}
-                                            </Badge>
                                         </div>
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </div>
+                )}
 
-                                        {application.description && (
-                                            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                                                {application.description}
-                                            </p>
-                                        )}
+                {/* Rejected Applications - Compact List */}
+                {rejectedApplications.length > 0 && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-medium text-muted-foreground">
+                                Closed Applications
+                            </h2>
+                            <div className="text-sm text-muted-foreground">
+                                {rejectedApplications.length} applications
+                            </div>
+                        </div>
 
-                                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                            {application.appliedAt && (
-                                                <div className="flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" />
-                                                    <span>Applied {new Date(application.appliedAt).toLocaleDateString()}</span>
+                        <div className="space-y-3">
+                            {rejectedApplications.map(
+                                (
+                                    application: (typeof transformedApplications)[0],
+                                    index: number
+                                ) => (
+                                    <div key={application.id}>
+                                        <div className="flex items-center justify-between py-2">
+                                            <div className="flex items-center gap-3">
+                                                <XCircleIcon className="size-4 text-red-600" />
+                                                <div>
+                                                    <div className="font-medium text-sm">
+                                                        {application.jobTitle}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {application.company}
+                                                    </div>
                                                 </div>
-                                            )}
-                                            <span>Saved {new Date(application.savedAt).toLocaleDateString()}</span>
-                                            {application.source && <span>via {application.source}</span>}
-                                        </div>
-
-                                        {application.notes && (
-                                            <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
-                                                <p className="text-sm text-gray-700 dark:text-gray-300">
-                                                    <strong>Notes:</strong> {application.notes}
-                                                </p>
                                             </div>
+                                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                                <span>
+                                                    {new Date(
+                                                        application.appliedDate
+                                                    ).toLocaleDateString()}
+                                                </span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 px-2"
+                                                    onClick={() =>
+                                                        window.open(
+                                                            application.applicationUrl,
+                                                            "_blank"
+                                                        )
+                                                    }
+                                                >
+                                                    <ExternalLinkIcon className="size-3" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        {index <
+                                            rejectedApplications.length - 1 && (
+                                            <Separator className="my-2" />
                                         )}
                                     </div>
+                                )
+                            )}
+                        </div>
+                    </div>
+                )}
 
-                                    <div className="flex flex-col gap-3 flex-shrink-0">
-                                        <Select
-                                            value={application.applicationStatus}
-                                            onValueChange={(value) => handleStatusChange(application.id, value as SavedJob["applicationStatus"])}
-                                        >
-                                            <SelectTrigger className="w-32 h-9 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="applied">Applied</SelectItem>
-                                                <SelectItem value="interview">Interview</SelectItem>
-                                                <SelectItem value="rejected">Rejected</SelectItem>
-                                                <SelectItem value="accepted">Accepted</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                {/* Empty State */}
+                {transformedApplications.length === 0 && (
+                    <div className="text-center py-12">
+                        <BriefcaseIcon className="size-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-medium mb-2">
+                            No Applications Yet
+                        </h3>
+                        <p className="text-muted-foreground mb-6">
+                            Start tracking your job applications to see them
+                            here
+                        </p>
+                        <div className="flex items-center justify-center gap-3">
+                            <Button
+                                variant="outline"
+                                className="gap-2"
+                                onClick={handleApplyToSaved}
+                            >
+                                <BookmarkIcon className="size-4" />
+                                Apply to Saved Jobs
+                            </Button>
+                            <Button
+                                className="gap-2"
+                                onClick={() => setIsDialogOpen(true)}
+                            >
+                                <PlusCircleIcon className="size-4" />
+                                Add Your First Application
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
 
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            asChild
-                                            className="h-9 px-3 text-xs"
-                                        >
-                                            <Link
-                                                href={application.link}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-1"
-                                            >
-                                                <ExternalLink className="w-3 h-3" />
-                                                View Job
-                                            </Link>
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            )}
-        </div>
+            <AddApplicationDialog
+                open={isDialogOpen}
+                onOpenChange={setIsDialogOpen}
+                onApplicationAdded={handleApplicationAdded}
+            />
+        </>
     );
 }

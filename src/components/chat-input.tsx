@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Mic, MicOff, Send, Loader2 } from "lucide-react";
+import { Mic, MicOff, Send, Loader2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 
@@ -17,7 +17,7 @@ interface SpeechRecognitionEvent {
 }
 
 interface SpeechRecognitionConstructor {
-    new(): SpeechRecognition;
+    new (): SpeechRecognition;
 }
 
 interface SpeechRecognition {
@@ -47,6 +47,9 @@ interface ChatInputProps {
     minHeight?: string;
     maxHeight?: string;
     className?: string;
+    showLiveSearch?: boolean;
+    isLiveSearchEnabled?: boolean;
+    onLiveSearchToggle?: (enabled: boolean) => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -57,6 +60,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     minHeight = "44px",
     maxHeight = "200px",
     className = "",
+    showLiveSearch = false,
+    isLiveSearchEnabled = false,
+    onLiveSearchToggle,
 }) => {
     const [dictationState, setDictationState] =
         useState<DictationState>("idle");
@@ -142,6 +148,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     return (
         <div className={cn("w-full max-w-2xl mx-auto", className)}>
+            {/* Live Search Toggle */}
+            {showLiveSearch && (
+                <div className="flex items-center justify-center gap-2 mb-3">
+                    <Button
+                        variant={isLiveSearchEnabled ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => onLiveSearchToggle?.(!isLiveSearchEnabled)}
+                        className={cn(
+                            "flex items-center gap-2 text-sm transition-all duration-200",
+                            isLiveSearchEnabled
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "border-border hover:bg-accent hover:text-accent-foreground"
+                        )}
+                    >
+                        <Zap size={14} className={isLiveSearchEnabled ? "text-primary-foreground" : ""} />
+                        Live Search
+                        {isLiveSearchEnabled && (
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        )}
+                    </Button>
+                    {isLiveSearchEnabled && (
+                        <span className="text-xs text-muted-foreground animate-in fade-in slide-in-from-right-2">
+                            AI agent will browse the web for real-time results
+                        </span>
+                    )}
+                </div>
+            )}
+            
             <div className="flex items-center gap-2 bg-background border border-border rounded-xl px-4 py-3 shadow-sm transition-all duration-200">
                 <textarea
                     ref={textareaRef}
@@ -168,7 +202,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                         "h-8 w-8 p-0 rounded-lg transition-all duration-200 flex-shrink-0",
                         "hover:bg-accent hover:text-accent-foreground",
                         dictationState === "recording" &&
-                        "bg-primary/10 text-primary"
+                            "bg-primary/10 text-primary"
                     )}
                     aria-label={
                         dictationState === "recording"

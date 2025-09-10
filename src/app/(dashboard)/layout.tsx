@@ -2,8 +2,10 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { QueryProvider } from "@/components/providers/query";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { Toaster } from "sonner";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/server";
 
 export default async function DashboardLayout({
     children,
@@ -12,6 +14,14 @@ export default async function DashboardLayout({
 }) {
     const cookieStore = await cookies();
     const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+    const session = await auth.api.getSession({
+        headers: await headers(),
+    });
+
+    if (!session) {
+        console.log("No session");
+        return redirect("/sign-in");
+    }
 
     return (
         <QueryProvider>

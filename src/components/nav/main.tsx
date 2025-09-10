@@ -8,6 +8,7 @@ import {
     HistoryIcon,
     SearchIcon,
     Loader2,
+    ZapIcon,
 } from "lucide-react";
 import {
     SidebarGroup,
@@ -53,19 +54,22 @@ export function NavMain({
             }
             const data = await response.json();
             const recentSearches: SearchHistory[] = data.searches.slice(0, 5);
-            return recentSearches.map((search) => ({
-                title:
-                    search.query.length > 25
-                        ? `${search.query.slice(0, 25)}...`
-                        : search.query,
-                url: `/search/${search.id}?q=${encodeURIComponent(
-                    search.query
-                )}`,
-                icon: SearchIcon,
-                timestamp:
-                    search.createdAt ||
-                    new Date(search.timestamp).toISOString(),
-            }));
+            return recentSearches.map((search) => {
+                const isLiveSearch = search.type === 'live';
+                return {
+                    title:
+                        search.query.length > 25
+                            ? `${search.query.slice(0, 25)}...`
+                            : search.query,
+                    url: isLiveSearch 
+                        ? `/live-search/${search.id}?q=${encodeURIComponent(search.query)}`
+                        : `/search/${search.id}?q=${encodeURIComponent(search.query)}`,
+                    icon: isLiveSearch ? ZapIcon : SearchIcon,
+                    timestamp:
+                        search.createdAt ||
+                        new Date(search.timestamp).toISOString(),
+                };
+            });
         },
     });
 

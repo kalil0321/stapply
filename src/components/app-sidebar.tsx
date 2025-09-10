@@ -3,9 +3,12 @@
 import type * as React from "react";
 import {
     BriefcaseIcon,
+    SettingsIcon,
     UserIcon,
+    BellIcon,
     BookmarkIcon,
-    Link2Icon,
+    BarChart3,
+    RouteIcon,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav/main";
@@ -17,8 +20,11 @@ import {
     SidebarContent,
     SidebarFooter,
     SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Logo } from "@/components/logo";
+import { Stapply } from "./logo";
 
 const data = {
     user: {
@@ -29,19 +35,14 @@ const data = {
     },
     jobCategories: [
         {
-            title: "Quick Apply",
-            url: "/quick-apply",
-            icon: Link2Icon,
-        },
-        {
-            title: "Saved Jobs",
-            url: "/saved-jobs",
-            icon: BookmarkIcon,
-        },
-        {
             title: "Applications",
             url: "/applications",
             icon: BriefcaseIcon,
+        },
+        {
+            title: "Saved Jobs",
+            url: "/saved",
+            icon: BookmarkIcon,
         },
         {
             title: "Profile & Preferences",
@@ -50,6 +51,21 @@ const data = {
         },
     ],
     navSecondary: [
+        // { // For debugging purposes
+        //     title: "Analytics",
+        //     url: "/analytics",
+        //     icon: BarChart3,
+        // },
+        // {
+        //     title: "Roadmap",
+        //     url: "/roadmap",
+        //     icon: RouteIcon,
+        // },
+        // {
+        //     title: "Notifications",
+        //     url: "/notifications",
+        //     icon: BellIcon,
+        // },
     ],
 };
 
@@ -59,7 +75,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarHeader>
                 <div className="flex items-center justify-center gap-2">
                     <a href="/">
-                        <Logo className="text-2xl text-black bg-clip-text tracking-tight" showDocs docsSize={28} />
+                        <Stapply className="text-2xl text-black bg-clip-text tracking-tight" showDocs docsSize={28} />
                     </a>
                 </div>
             </SidebarHeader>

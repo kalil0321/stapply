@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const jobTypes = [
     "an internship",
@@ -29,6 +30,7 @@ const suggestions = [
 export default function Page() {
     const [value, setValue] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isLiveSearchEnabled, setIsLiveSearchEnabled] = useState(false);
 
     const createSearchMutation = useMutation({
         mutationFn: async (query: string) => {
@@ -57,19 +59,45 @@ export default function Page() {
         try {
             console.log("Sending message:", value);
 
-            const data = await createSearchMutation.mutateAsync(value);
-            const searchId = data.id;
+            if (isLiveSearchEnabled) {
+                // Create live search task
+                const response = await fetch("/api/live-search", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: value }),
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMessage = errorData.error || "Failed to create live search";
+                    throw new Error(errorMessage);
+                }
+                
+                const data = await response.json();
+                const taskId = data.id;
+                
+                setIsLoading(false);
+                console.log("Live search task ID:", taskId);
+                
+                // Redirect to live search page
+                router.push(`/live-search/${taskId}?q=${encodeURIComponent(value)}`);
+                setValue("");
+            } else {
+                // Regular search
+                const data = await createSearchMutation.mutateAsync(value);
+                const searchId = data.id;
 
-            setIsLoading(false);
+                setIsLoading(false);
+                console.log("Search ID: ", data.id);
 
-            console.log("Search ID: ", data.id);
-
-            // Redirect to search page with the database ID
-            router.push(`/search/${searchId}?q=${encodeURIComponent(value)}`);
-            setValue("");
+                // Redirect to search page with the database ID
+                router.push(`/search/${searchId}?q=${encodeURIComponent(value)}`);
+                setValue("");
+            }
         } catch (error) {
             console.error("Error creating search:", error);
-            // TODO: show error message to user using toast
+            const errorMessage = error instanceof Error ? error.message : "Failed to create search";
+            toast.error(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -106,6 +134,9 @@ export default function Page() {
                     setValue={setValue}
                     onSend={handleSend}
                     isLoading={isLoading}
+                    showLiveSearch={true}
+                    isLiveSearchEnabled={isLiveSearchEnabled}
+                    onLiveSearchToggle={setIsLiveSearchEnabled}
                 />
                 <Suggestions
                     suggestions={suggestions}
