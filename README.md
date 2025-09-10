@@ -1,31 +1,52 @@
-# 🚀 Stapply - AI job search engine
+# 🚀 Stapply – AI Job Search Engine
 
-kalil0321: on discord, x and github
-my website: kalil0321.com
+---
 
-Stapply is an AI job search engine. It helps you find jobs matching all your criteria and then using Browser Use allows you to apply to it.
+Stapply is an **AI-powered job search engine**.  
+It helps you find roles that truly match your criteria, and with **Browser Use** it can even apply to them automatically.
 
-## Search Pipeline
+---
 
-The idea was that sometimes linkedin job search is quite poor many listing don't suit. I built an AI first search pipeline. We crawl and index jobs and store them alongsite thsir embedding in a DB. Then when user queries we create a classic SQL request, and another embedding request and rerank then we use AI to validate all queries to make sure it fully matches user critierias. 
-YOu can also search for live job using Browser Use, it goes and find fresh job listings.
-You also improt an url and we get the job data to then allow you to apply to it.
+## 🔎 Search Pipeline
 
-## Job application
+The idea came from the fact that LinkedIn job search is often poor and many listings don’t match. I built an AI-first search pipeline. We crawl and index jobs, store them alongside their embeddings in a database, then when the user queries we create both a SQL request and an embedding request. Results are reranked and finally validated by AI to make sure they fully match the user’s criteria.  
 
-The job application part fully relies on AI agent. Currently, it is not fully performant due to file upload issues but i believe it will get better soon. 
-#TODO: tell more about the AI search.
+You can also search for live jobs using Browser Use, which finds fresh listings in real time. Another option is to import a job URL, in which case we extract the job details and allow you to apply directly.
 
-## Issues
+---
 
-You can find a few current issues / bugs at ISSUES.md
+## 📄 Job Application
 
-As this was a project for a hackathon i think it is not yet production ready, there is a list of todos.
+The job application part is fully powered by an AI agent. It autofills forms, attaches your résumé, and guides you through extra steps. Currently, file upload support is not fully reliable, but I believe this will improve soon. There is the cloud and local versions. For the cloud you need to have a BROWSER_USE_API_KEY. For the local version, you just need to run the server that handles the browser locally.
 
-To run locally, just add all the env keys and don't forget to run the local BU server in server folder.
+---
 
-## Setup:
+## 🐛 Issues & TODOs
 
-Create .env file with env.example
-`cd server & python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && ython3 bu.py`
-In a new terminal, `npm i && npm run dev`, then access the app at localhost:3000.
+Current issues and bugs are listed in **ISSUES.md**.  
+Since this was a hackathon project, it is not production ready yet. A full list of TODOs is included in the repo.
+
+---
+
+## ⚙️ Setup
+
+Create a `.env` file using `env.example` as a template.  
+
+Run the local Browser Use server:
+
+```bash
+cd server
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 bu.py
+```
+
+In a new terminal, start the frontend:
+```bash
+npm install
+npm run dev
+The app will be available at http://localhost:3000.
+```
+
+Ready to hunt!
