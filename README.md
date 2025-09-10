@@ -24,7 +24,7 @@ The job application part is fully powered by an AI agent. It autofills forms, at
 ## 🐛 Issues & TODOs
 
 Current issues and bugs are listed in **ISSUES.md**.  
-Since this was a hackathon project, it is not production ready yet. A full list of TODOs is included in the repo.
+Since this was a hackathon project, it is not production ready yet. I plan to improve the project and deploy it.
 
 ---
 
