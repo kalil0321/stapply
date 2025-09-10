@@ -325,36 +325,6 @@ export default function LiveSearchPage() {
             <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 min-h-0">
                 {/* Results Panel */}
                 <div className="w-full lg:w-80 flex flex-col gap-3">
-                    {/* Task Status Card */}
-                    {taskData?.liveSearch && (
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <PlayCircle className="h-4 w-4" />
-                                    Task Details
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-0 space-y-3">
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Status:</span>
-                                        <span>{getStatusBadge(taskData.status || taskData.liveSearch.status, taskData.isSuccess)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Task ID:</span>
-                                        <span className="font-mono text-xs">{taskData.liveSearch.browserTaskId}</span>
-                                    </div>
-                                    {taskData.liveSearch.error && (
-                                        <div className="mt-2 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
-                                            <p className="text-xs text-red-600 dark:text-red-400">
-                                                <strong>Error:</strong> {taskData.liveSearch.error}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
 
                     {/* <pre>
                         {JSON.stringify(taskData, null, 2)}

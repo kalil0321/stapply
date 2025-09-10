@@ -118,7 +118,7 @@ export function SearchHeader({
                         <h1 className="text-lg font-semibold text-foreground mb-2">
                             {queryText}
                         </h1>
-                        <div className="flex items-center gap-2 mt-2">
+                        {/* <div className="flex items-center gap-2 mt-2">
                             {loading && !searchRecord ? (
                                 <div className="h-3 w-20 bg-muted animate-pulse rounded"></div>
                             ) : searchRecord ? (
@@ -130,7 +130,7 @@ export function SearchHeader({
                                     )}
                                 </p>
                             ) : null}
-                        </div>
+                        </div> */}
                     </div>
 
                     {/* Status Indicator */}

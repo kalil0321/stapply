@@ -1,57 +1,31 @@
-# Job Application Automation Platform
+# 🚀 Stapply - AI job search engine
 
-This is a [Next.js](https://nextjs.org) project that automates job applications using AI and browser automation.
+kalil0321: on discord, x and github
+my website: kalil0321.com
 
-## Features
+Stapply is an AI job search engine. It helps you find jobs matching all your criteria and then using Browser Use allows you to apply to it.
 
-- **Resume Parsing**: Upload your resume and automatically extract profile information using AI
-- **Profile Management**: Store your personal information, skills, experience, and education
-- **Automated Job Applications**: Apply to jobs automatically using BrowserUse SDK
-- **Multiple Platform Support**: Works with LinkedIn, Indeed, Glassdoor, and company websites
+## Search Pipeline
 
-## Environment Setup
+The idea was that sometimes linkedin job search is quite poor many listing don't suit. I built an AI first search pipeline. We crawl and index jobs and store them alongsite thsir embedding in a DB. Then when user queries we create a classic SQL request, and another embedding request and rerank then we use AI to validate all queries to make sure it fully matches user critierias. 
+YOu can also search for live job using Browser Use, it goes and find fresh job listings.
+You also improt an url and we get the job data to then allow you to apply to it.
 
-Create a `.env.local` file in the root directory with the following variables:
+## Job application
 
-```env
-# BrowserUse API Key for job application automation
-# Get your API key from https://cloud.browser-use.com/
-BROWSER_USE_API_KEY=your_browser_use_api_key_here
+The job application part fully relies on AI agent. Currently, it is not fully performant due to file upload issues but i believe it will get better soon. 
+#TODO: tell more about the AI search.
 
-# Database connection (optional - currently using localStorage)
-DATABASE_URL=your_database_connection_string_here
-```
+## Issues
 
-## Getting Started
+You can find a few current issues / bugs at ISSUES.md
 
-First, install dependencies and run the development server:
+As this was a project for a hackathon i think it is not yet production ready, there is a list of todos.
 
-```bash
-npm install
-npm run dev
-# or
-yarn install && yarn dev
-# or
-pnpm install && pnpm dev
-```
+To run locally, just add all the env keys and don't forget to run the local BU server in server folder.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Create .env file with env.example
+`cd server & python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && ython3 bu.py`
+In a new terminal, `npm i && npm run dev`, then access the app at localhost:3000.

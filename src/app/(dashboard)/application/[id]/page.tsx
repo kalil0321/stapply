@@ -299,9 +299,9 @@ export default function ApplicationPage() {
                     </div>
 
                     {/* Right: Task ID */}
-                    <div className="text-xs text-muted-foreground font-mono">
+                    {/* <div className="text-xs text-muted-foreground font-mono">
                         Task: {application.taskId}
-                    </div>
+                    </div> */}
                 </div>
             </div>
 
