@@ -67,12 +67,12 @@ export const SearchMetadata: React.FC<SearchMetadataProps> = ({
                     </Badge>
                 )}
                 {!query.valid && query.suggestion && (
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-muted-foreground line-clamp-2 break-words overflow-hidden max-w-md">
                         {query.suggestion}
                     </span>
                 )}
                 {!query.valid && query.reasoning && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground line-clamp-2 break-words overflow-hidden max-w-md">
                         <span className="font-medium text-foreground">
                             Reason:
                         </span>{" "}
@@ -112,7 +112,7 @@ export const SearchMetadata: React.FC<SearchMetadataProps> = ({
                             >
                                 {enrichment.field}
                             </Badge>
-                            <span className="text-xs text-amber-700 dark:text-amber-300">
+                            <span className="text-xs text-amber-700 dark:text-amber-300 line-clamp-1 break-words overflow-hidden max-w-48">
                                 {enrichment.description}
                             </span>
                         </span>

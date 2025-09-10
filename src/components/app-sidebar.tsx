@@ -9,6 +9,7 @@ import {
     BookmarkIcon,
     BarChart3,
     RouteIcon,
+    RocketIcon,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav/main";
@@ -38,6 +39,11 @@ const data = {
             title: "Applications",
             url: "/applications",
             icon: BriefcaseIcon,
+        },
+        {
+            title: "Local Applications",
+            url: "/local-applications",
+            icon: RocketIcon,
         },
         {
             title: "Saved Jobs",

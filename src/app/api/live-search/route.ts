@@ -39,12 +39,10 @@ export async function POST(req: NextRequest) {
         let browserTask;
         try {
             browserTask = await browser.tasks.createTask({
-                systemPromptExtension: `You are a professional job search assistant. You search for jobs and collect information about 3 relevant job postings. Please be thorough and accurate in collecting this information. If a company name is mentioned, try using their careers page or their job board like for Mistral: https://jobs.lever.co/mistral or Palantir: https://jobs.lever.co/palantir or OpenAI: https://jobs.ashbyhq.com/openai. Otherwise, use linkedin to find the jobs.`,
+                systemPromptExtension: `You are a professional job search assistant. You search for jobs and collect information about 5 job postings. Don't extract more than 5 job postings.
+                
+                If a company name is mentioned, try using their careers page or their job board like for Mistral: https://jobs.lever.co/mistral or Palantir: https://jobs.lever.co/palantir or OpenAI: https://jobs.ashbyhq.com/openai. Otherwise, use linkedin to find the jobs. On Lever, use the title to infer job type and location, if it is an intership or full time, etc. Also, click on the job to get the job link.`,
                 task: `Please search for "${query}"`,
-                schema: z.array(z.object({
-                    title: z.string(),
-                    link: z.url(),
-                })),
                 flashMode: true,
                 highlightElements: true,
                 llm: "gemini-2.5-flash",

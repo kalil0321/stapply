@@ -44,6 +44,8 @@ export function NavMain({
     }[];
 }) {
     const [cachedCount, setCachedCount] = useState<number | null>(null);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [hasMounted, setHasMounted] = useState(false);
 
     const { data: historyEntries = [], isLoading: loading } = useQuery({
         queryKey: ["recentSearches"],
@@ -72,6 +74,11 @@ export function NavMain({
             });
         },
     });
+
+    // Handle mounting state for hydration
+    useEffect(() => {
+        setHasMounted(true);
+    }, []);
 
     // Cache the count when data is successfully loaded
     useEffect(() => {
@@ -104,7 +111,11 @@ export function NavMain({
                 </SidebarGroupContent>
             </SidebarGroup>
 
-            <Collapsible defaultOpen className="group/collapsible">
+            <Collapsible 
+                open={hasMounted ? isHistoryOpen : false} 
+                onOpenChange={setIsHistoryOpen}
+                className="group/collapsible"
+            >
                 <SidebarGroup>
                     <SidebarGroupLabel asChild>
                         <CollapsibleTrigger>

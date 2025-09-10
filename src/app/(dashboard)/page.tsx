@@ -19,10 +19,10 @@ const jobTypes = [
 ];
 
 const suggestions = [
-    "Tech internships in Silicon Valley",
+    "Tech internships in Paris or Zurich",
+    "Jobs at Mistral",
     "Remote software engineer positions",
     "AI/ML research opportunities",
-    "Startup growth roles",
     "Data science internships",
     "Product management jobs",
 ];

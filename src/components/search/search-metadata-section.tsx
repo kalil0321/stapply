@@ -118,14 +118,14 @@ export function SearchMetadataSection({
                         </div>
 
                         {metadata.query.reasoning && (
-                            <p className="text-sm text-muted-foreground mb-3">
+                            <p className="text-sm text-muted-foreground mb-3 line-clamp-3 overflow-hidden break-words">
                                 {metadata.query.reasoning}
                             </p>
                         )}
 
                         {metadata.query.suggestion && (
-                            <div className="bg-blue-50/50 dark:bg-blue-950/20 border-l-2 border-blue-500 pl-4 py-2">
-                                <p className="text-sm text-blue-700 dark:text-blue-300">
+                            <div className="bg-blue-50/50 dark:bg-blue-950/20 border-l-2 border-blue-500 pl-4 py-2 overflow-hidden">
+                                <p className="text-sm text-blue-700 dark:text-blue-300 line-clamp-3 overflow-hidden break-words">
                                     {metadata.query.suggestion}
                                 </p>
                             </div>
@@ -135,9 +135,9 @@ export function SearchMetadataSection({
             )}
 
             {metadata.query.enhanced && (
-                <div className="flex items-start gap-2 max-w-full">
+                <div className="flex items-start gap-2 max-w-full overflow-hidden">
                     <Brain className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-muted-foreground break-words leading-relaxed max-w-full">
+                    <p className="text-sm text-muted-foreground break-words leading-relaxed max-w-full line-clamp-3 overflow-hidden">
                         {metadata.query.enhanced}
                     </p>
                 </div>
@@ -162,95 +162,6 @@ export function SearchMetadataSection({
                             ))}
                         </div>
                     </ScrollArea>
-                </div>
-            )}
-
-            {/* Enrichments */}
-            {metadata.enrichments && metadata.enrichments.length > 0 && (
-                <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <TrendingUpIcon className="w-4 h-4" />
-                        Query Enrichments
-                    </div>
-                    <div className="grid gap-3">
-                        {metadata.enrichments.map((enrichment, index) => {
-                            // Handle different types of enrichments
-                            let field = "";
-                            let description = "";
-
-                            if (
-                                typeof enrichment === "object" &&
-                                enrichment !== null
-                            ) {
-                                if (
-                                    "field" in enrichment &&
-                                    "description" in enrichment
-                                ) {
-                                    field = enrichment.field as string;
-                                    description =
-                                        enrichment.description as string;
-                                } else {
-                                    // Fallback for other object structures
-                                    field =
-                                        Object.keys(enrichment)[0] || "Unknown";
-                                    description = JSON.stringify(enrichment);
-                                }
-                            } else if (typeof enrichment === "string") {
-                                try {
-                                    const parsed = JSON.parse(enrichment);
-                                    if (parsed.field && parsed.description) {
-                                        field = parsed.field;
-                                        description = parsed.description;
-                                    } else {
-                                        field = "Enrichment";
-                                        description = enrichment;
-                                    }
-                                } catch {
-                                    field = "Enrichment";
-                                    description = enrichment;
-                                }
-                            } else {
-                                field = "Unknown";
-                                description = "Invalid enrichment format";
-                            }
-
-                            const FieldIcon = getFieldIcon(field);
-                            const formattedField = formatFieldName(field);
-
-                            return (
-                                <motion.div
-                                    key={index}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{
-                                        duration: 0.3,
-                                        delay: index * 0.1,
-                                    }}
-                                    className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/50 transition-colors"
-                                >
-                                    <div className="flex-shrink-0 mt-0.5">
-                                        <FieldIcon className="w-4 h-4 text-blue-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-sm font-medium text-foreground">
-                                                {formattedField}
-                                            </span>
-                                            <Badge
-                                                variant="secondary"
-                                                className="text-xs px-1.5 py-0.5"
-                                            >
-                                                Enhanced
-                                            </Badge>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                            {description}
-                                        </p>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </div>
                 </div>
             )}
         </motion.div>

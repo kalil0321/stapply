@@ -40,6 +40,7 @@ interface LiveSearchTask {
     };
     results: any;
     url: string | null;
+    filesUrls: string[];
     isSuccess: boolean | null;
     status: "pending" | "running" | "completed" | "failed" | "stopped" | null;
     query: string;
@@ -67,6 +68,7 @@ export default function LiveSearchPage() {
             const errorMessage = errorData.error || "Failed to load live search data";
             throw new Error(errorMessage);
         }
+
         return response.json() as Promise<LiveSearchTask>;
     }, [id]);
 
@@ -89,18 +91,6 @@ export default function LiveSearchPage() {
             return 2000;
         }
     });
-
-    // Helper function to copy URL to clipboard
-    const copyToClipboard = async (text: string) => {
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopySuccess(true);
-            setTimeout(() => setCopySuccess(false), 2000);
-        } catch (err) {
-            console.error('Failed to copy: ', err);
-        }
-    };
-
     // Function to stop the task
     const stopTask = async () => {
         if (!id || isStoppingTask) return;
@@ -257,7 +247,7 @@ export default function LiveSearchPage() {
                                 <p className="text-sm text-muted-foreground mt-1">
                                     {taskData?.query || queryText}
                                 </p>
-                                {taskData?.liveSearch && (
+                                {/* {taskData?.liveSearch && (
                                     <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                                         <div className="flex items-center gap-1">
                                             <Calendar className="h-3 w-3" />
@@ -270,7 +260,7 @@ export default function LiveSearchPage() {
                                             </div>
                                         )}
                                     </div>
-                                )}
+                                )} */}
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -365,6 +355,25 @@ export default function LiveSearchPage() {
                             </CardContent>
                         </Card>
                     )}
+
+                    {/* <pre>
+                        {JSON.stringify(taskData, null, 2)}
+                    </pre> */}
+
+                    {taskData?.filesUrls && taskData.filesUrls.length > 0 &&
+                        <div className="flex flex-col gap-2">
+                            <span className="text-xs text-muted-foreground">
+                                Files: {taskData.filesUrls.length}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                {taskData.filesUrls.map((url, index) => (
+                                    <a href={url} target="_blank" rel="noopener noreferrer" key={index} className="text-xs text-muted-foreground">
+                                        {url}
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    }
 
                     {/* Results Card */}
                     {taskData?.results && (

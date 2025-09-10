@@ -26,6 +26,16 @@ interface DatabaseSearchRecord {
     metadata: SearchMetadata | null;
     createdAt: string;
     valid: boolean;
+    type: 'regular' | 'live';
+    timestamp: number;
+    // Live search specific fields
+    status?: string;
+    browserTaskId?: string;
+    agentLogs?: string[];
+    results?: any[];
+    error?: string | null;
+    updatedAt?: string;
+    completedAt?: string | null;
 }
 
 const SearchHistorySkeleton = () => (
@@ -65,11 +75,20 @@ export default function HistoryPage() {
         const history: SearchHistory[] = data.searches.map((search: DatabaseSearchRecord) => ({
             id: search.id,
             query: search.query,
-            timestamp: new Date(search.createdAt).getTime(),
+            timestamp: search.timestamp || new Date(search.createdAt).getTime(),
             metadata: search.metadata,
             createdAt: search.createdAt,
             userId: search.userId,
             valid: search.valid,
+            type: search.type,
+            // Live search specific fields
+            status: search.status,
+            browserTaskId: search.browserTaskId,
+            agentLogs: search.agentLogs,
+            results: search.results,
+            error: search.error,
+            updatedAt: search.updatedAt,
+            completedAt: search.completedAt,
         }));
         return history;
     };

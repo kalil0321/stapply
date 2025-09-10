@@ -155,33 +155,48 @@ export async function POST(req: NextRequest) {
 
         console.log(`[Application ${jobId}] File uploaded successfully to BrowserUse`);
 
+        const valid_session = await browser.sessions.getSession(session.id);
+
+        if (!valid_session) {
+            return NextResponse.json(
+                { error: "Invalid session" },
+                { status: 500 }
+            );
+        } else {
+            console.log(`[Application ${jobId}] Valid session found: ${valid_session.id}`);
+        }
+
         // Generate a task ID for tracking
         console.log(`[Application ${jobId}] Creating automation task...`);
         const task = await browser.tasks.createTask({
+            systemPromptExtension: `You are a helpful assistant that can help me apply to jobs. If a field is not present and not required, just leave it blank. Otherwise, fill in the field with the information provided or infer the infos based on user profile.`,
             startUrl: jobExists.link,
-            task: `You are a helpful assistant that can help me apply to jobs.
-            If a field is not present and not required, just leave it blank. Otherwise, fill in the field with the information provided or infer the infos based on user profile.
+            task: `
             Please go to ${jobExists.link} and complete the application process using this information.
             Here are the infos about the user:
-            Name: ${userProfile.firstName || ''} ${userProfile.lastName || ''}
-            Email: ${userProfile.email || ''}
-            Phone: ${userProfile.phone || ''}
-            Location: ${userProfile.location || ''}
-            Nationality: ${userProfile.nationality || ''}
-            Gender: ${userProfile.gender || ''}
-            LinkedIn: ${userProfile.linkedinUrl || ''}
-            Website: ${userProfile.websiteUrl || ''}
-            GitHub: ${userProfile.githubUrl || ''}
-            Summary: ${userProfile.summary || ''}
-            Skills: ${userProfile.skills ? userProfile.skills.join(', ') : ''}
-            The resume file name is ${fileUploadUrl.fileName}, upload it when prompted.
+            ${userProfile.firstName && userProfile.lastName ? `Name: ${userProfile.firstName || ''} ${userProfile.lastName || ''}` : ''}
+            ${userProfile.email ? `Email: ${userProfile.email || ''}` : ''}
+            ${userProfile.phone ? `Phone: ${userProfile.phone || ''}` : ''}
+            ${userProfile.location ? `Location: ${userProfile.location || ''}` : ''}
+            ${userProfile.nationality ? `Nationality: ${userProfile.nationality || ''}` : ''}
+            ${userProfile.gender ? `Gender: ${userProfile.gender || ''}` : ''}
+            ${userProfile.linkedinUrl ? `LinkedIn: ${userProfile.linkedinUrl || ''}` : ''}
+            ${userProfile.websiteUrl ? `Website: ${userProfile.websiteUrl || ''}` : ''}
+            ${userProfile.githubUrl ? `GitHub: ${userProfile.githubUrl || ''}` : ''}
+            ${userProfile.summary ? `Summary: ${userProfile.summary || ''}` : ''}
+            ${userProfile.skills ? `Skills: ${userProfile.skills.join(', ')}` : ''}
+            ${fileUploadUrl.fileName ? `The resume file name is ${fileUploadUrl.fileName}, upload it when prompted.` : ''}
 
             ${instructions && instructions.length > 0 ? `Additional instructions: ${instructions}` : ''}
             
+            Intership duration should be 3 to 6 months on average.
+
+
             Please navigate to the job posting and complete the application process using this information.
-            Make sure to upload the resume file when prompted.
+            Make sure to upload the resume file when prompted, only as the last step.
                 `,
-            highlightElements: true,
+            llm: "gemini-2.5-flash",
+            flashMode: true,
             sessionId: session.id,
         });
 

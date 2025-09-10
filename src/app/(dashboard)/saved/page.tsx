@@ -14,6 +14,7 @@ import {
     ExternalLinkIcon,
     TrashIcon,
     PlusIcon,
+    RocketIcon,
 } from "lucide-react";
 import { useSavedJobs } from "@/hooks/use-saved-jobs";
 import { useEffect, useState } from "react";
@@ -123,6 +124,7 @@ export default function SavedJobsPage() {
 
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-2 flex-shrink-0">
+                                        <Skeleton className="h-9 w-24" />
                                         <Skeleton className="h-9 w-16" />
                                         <Skeleton className="h-9 w-20" />
                                         <Skeleton className="h-9 w-9" />
@@ -285,8 +287,24 @@ export default function SavedJobsPage() {
                                         </div>
 
                                         <div className="flex items-center gap-2 flex-shrink-0">
+                                            {savedJob.jobId && (
+                                                <Button
+                                                    variant="default"
+                                                    size="sm"
+                                                    asChild
+                                                    className=""
+                                                >
+                                                    <Link
+                                                        href={`/local-applications/${savedJob.jobId}`}
+                                                        className="flex items-center gap-1"
+                                                    >
+                                                        <RocketIcon className="w-4 h-4" />
+                                                        Apply Locally
+                                                    </Link>
+                                                </Button>
+                                            )}
                                             <Button
-                                                variant="default"
+                                                variant="outline"
                                                 size="sm"
                                                 onClick={() =>
                                                     handleApplyClick(savedJob)

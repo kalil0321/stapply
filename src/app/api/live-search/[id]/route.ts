@@ -63,7 +63,6 @@ export async function GET(
 
         try {
             task = await browser.tasks.getTask(id);
-            console.log("BrowserUse task:", JSON.stringify(task, null, 2));
 
             if (task && task.sessionId) {
                 const session = await browser.sessions.getSession(task.sessionId);
@@ -86,8 +85,6 @@ export async function GET(
             isSuccess = task?.isSuccess ?? null;
             status = task?.status || null;
 
-            console.log("BrowserUse liveUrl:", JSON.stringify(url, null, 2));
-
         } catch (browserError: any) {
             console.error("BrowserUse API error:", browserError);
 
@@ -109,9 +106,19 @@ export async function GET(
             // Just return the database data without browser session info
         }
 
+        let filesUrls: string[] = [];
+        if (task?.outputFiles && task?.outputFiles.length > 0) {
+            filesUrls = await Promise.all(task?.outputFiles.map(async (file) => {
+                return (await browser.files.getTaskOutputFilePresignedUrl(id, file.id)).downloadUrl
+            }));
+        }
+
+        console.log("BrowserUse output files:", JSON.stringify(filesUrls, null, 2));
+
         const responseData = {
             liveSearch: liveSearchRecord,
             results: output,
+            filesUrls,
             url,
             isSuccess,
             status,
@@ -216,8 +223,6 @@ export async function DELETE(
             const task = await browser.tasks.updateTask(id, {
                 action: "stop_task_and_session",
             });
-
-            console.log("Task stopped successfully:", JSON.stringify(task, null, 2));
 
             // Update the database record to reflect the stopped status
             await db

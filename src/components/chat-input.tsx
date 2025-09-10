@@ -150,28 +150,45 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <div className={cn("w-full max-w-2xl mx-auto", className)}>
             {/* Live Search Toggle */}
             {showLiveSearch && (
-                <div className="flex items-center justify-center gap-2 mb-3">
-                    <Button
-                        variant={isLiveSearchEnabled ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => onLiveSearchToggle?.(!isLiveSearchEnabled)}
-                        className={cn(
-                            "flex items-center gap-2 text-sm transition-all duration-200",
-                            isLiveSearchEnabled
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "border-border hover:bg-accent hover:text-accent-foreground"
-                        )}
-                    >
-                        <Zap size={14} className={isLiveSearchEnabled ? "text-primary-foreground" : ""} />
-                        Live Search
-                        {isLiveSearchEnabled && (
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                        )}
-                    </Button>
-                    {isLiveSearchEnabled && (
-                        <span className="text-xs text-muted-foreground animate-in fade-in slide-in-from-right-2">
-                            AI agent will browse the web for real-time results
+                <div className="flex items-center justify-between mb-3 p-2 rounded-lg bg-muted/30 border border-border/50">
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant={isLiveSearchEnabled ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => onLiveSearchToggle?.(!isLiveSearchEnabled)}
+                            className={cn(
+                                "flex items-center gap-2 text-sm transition-all duration-300 hover:scale-105",
+                                isLiveSearchEnabled
+                                    ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                            )}
+                        >
+                            <Zap size={14} className={cn(
+                                "transition-all duration-300",
+                                isLiveSearchEnabled ? "text-primary-foreground" : "text-muted-foreground"
+                            )} />
+                            Live Search
+                            {isLiveSearchEnabled && (
+                                <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                            )}
+                        </Button>
+                        <span className={cn(
+                            "text-xs transition-all duration-300",
+                            isLiveSearchEnabled 
+                                ? "text-primary font-medium" 
+                                : "text-muted-foreground"
+                        )}>
+                            {isLiveSearchEnabled 
+                                ? "Real-time web search" 
+                                : "Database search"
+                            }
                         </span>
+                    </div>
+                    {isLiveSearchEnabled && (
+                        <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-right-2">
+                            <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+                            Active
+                        </div>
                     )}
                 </div>
             )}

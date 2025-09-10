@@ -260,28 +260,28 @@ export function JobResultsList({ searchResults }: JobResultsListProps) {
                         <div className="flex flex-col w-full p-3 rounded-lg border border-border/50 bg-card hover:bg-accent hover:border-border transition-all duration-200 overflow-hidden">
                             <div className="space-y-2">
                                 {/* Title and Actions */}
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-base font-semibold leading-tight text-foreground capitalize line-clamp-2 break-words">
+                                <div className="flex items-start justify-between gap-3 min-w-0">
+                                    <div className="flex-1 min-w-0 overflow-hidden">
+                                        <h3 className="text-base font-semibold leading-tight text-foreground capitalize line-clamp-2 break-words overflow-hidden">
                                             {result.job?.title ||
                                                 "Job Title Not Available"}
                                         </h3>
-                                        <div className="flex items-center gap-2 text-muted-foreground mt-1 min-w-0">
-                                            <div className="flex items-center gap-1 min-w-0 flex-shrink">
+                                        <div className="flex items-center gap-2 text-muted-foreground mt-1 min-w-0 overflow-hidden">
+                                            <div className="flex items-center gap-1 min-w-0 flex-shrink-0 overflow-hidden">
                                                 <BuildingIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                                                <span className="text-sm capitalize truncate">
+                                                <span className="text-sm capitalize truncate min-w-0">
                                                     {result.job?.company ||
                                                         "Company Not Available"}
                                                 </span>
                                             </div>
                                             {result.job?.location && (
                                                 <>
-                                                    <span className="text-muted-foreground/50">
+                                                    <span className="text-muted-foreground/50 flex-shrink-0">
                                                         •
                                                     </span>
-                                                    <div className="flex items-center gap-1 min-w-0 flex-shrink">
+                                                    <div className="flex items-center gap-1 min-w-0 flex-shrink overflow-hidden">
                                                         <MapPinIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                                                        <span className="text-sm capitalize truncate">
+                                                        <span className="text-sm capitalize truncate min-w-0">
                                                             {
                                                                 result.job
                                                                     .location
@@ -299,7 +299,7 @@ export function JobResultsList({ searchResults }: JobResultsListProps) {
                                                 variant="outline"
                                                 size="sm"
                                                 asChild
-                                                className="h-7 px-2 text-xs"
+                                                className="h-7 px-2 text-xs whitespace-nowrap"
                                             >
                                                 <Link
                                                     href={result.job.link}
@@ -449,7 +449,7 @@ export function JobResultsList({ searchResults }: JobResultsListProps) {
                                                     duration: 0.3,
                                                     delay: 0.1,
                                                 }}
-                                                className="italic text-muted-foreground truncate overflow-hidden whitespace-nowrap flex-1 min-w-0"
+                                                className="italic text-muted-foreground flex-1 min-w-0 line-clamp-3 break-words overflow-hidden"
                                                 title={result.reason}
                                             >
                                                 {result.reason}

@@ -52,8 +52,6 @@ export function ApplicationSheet({
     savedJob,
 }: ApplicationSheetProps) {
     const router = useRouter();
-    const [profile, setProfile] = useState<ProfileData | null>(null);
-    const [loadingProfile, setLoadingProfile] = useState(false);
     const [applying, setApplying] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [instructions, setInstructions] = useState("");
@@ -76,24 +74,25 @@ export function ApplicationSheet({
     };
 
     const {
-        data: profileData,
-        isFetching: fetchingProfile,
+        data: profile,
+        isFetching: loadingProfile,
         error: profileError,
+        refetch: refetchProfile,
     } = useQuery({
         queryKey: ["profile"],
         queryFn: fetchProfile,
-        enabled: isOpen,
+        staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+        gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+        retry: 1,
     });
 
     useEffect(() => {
-        if (profileData !== undefined) {
-            setProfile(profileData);
-        }
         if (profileError instanceof Error) {
             setError(profileError.message);
+        } else {
+            setError(null);
         }
-        setLoadingProfile(fetchingProfile);
-    }, [profileData, profileError, fetchingProfile]);
+    }, [profileError]);
 
     const applyMutation = useMutation({
         mutationFn: async (jobId: string) => {
@@ -225,7 +224,7 @@ export function ApplicationSheet({
                             </p>
                         </div>
                         <div className="flex gap-3">
-                            <Button variant="outline" onClick={fetchProfile}>
+                            <Button variant="outline" onClick={() => refetchProfile()}>
                                 Try Again
                             </Button>
                             {error.includes("Authentication") ? (
