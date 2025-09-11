@@ -167,7 +167,7 @@ export default function SignUpPage() {
                                 <GOOGLE className="w-4 h-4 mr-2" />
                                 Continue with Google
                             </Button>
-                            <Button
+                            {/* <Button
                                 variant="outline"
                                 className="w-full rounded-xl"
                                 size="lg"
@@ -177,7 +177,7 @@ export default function SignUpPage() {
                             >
                                 <GITHUB className="w-4 h-4 mr-2" />
                                 Continue with GitHub
-                            </Button>
+                            </Button> */}
                         </form>
 
                         <p className="text-center text-xs w-11/12 text-muted-foreground">
