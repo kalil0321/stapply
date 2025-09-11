@@ -105,6 +105,20 @@ const getStatusInfo = (status: string) => {
 export default function LocalApplicationPage() {
     const { id } = useParams();
     const router = useRouter();
+
+    useEffect(() => {
+        // Check if we're in development mode
+        if (process.env.NODE_ENV !== "development") {
+            // Redirect to main dashboard in production
+            router.replace("/");
+            return;
+        }
+    }, [router]);
+
+    // Don't render anything in production
+    if (process.env.NODE_ENV !== "development") {
+        return null;
+    }
     const [instructions, setInstructions] = useState("");
     const [headless, setHeadless] = useState(true);
     const [maxSteps, setMaxSteps] = useState(100);

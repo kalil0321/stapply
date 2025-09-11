@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +18,22 @@ import {
 import Link from "next/link";
 
 export default function LocalApplicationsPage() {
+    const router = useRouter();
+
+    useEffect(() => {
+        // Check if we're in development mode
+        if (process.env.NODE_ENV !== "development") {
+            // Redirect to main dashboard in production
+            router.replace("/");
+            return;
+        }
+    }, [router]);
+
+    // Don't render anything in production
+    if (process.env.NODE_ENV !== "development") {
+        return null;
+    }
+
     return (
         <div className="flex flex-col h-screen">
             {/* Header */}

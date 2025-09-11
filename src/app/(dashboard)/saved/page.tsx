@@ -287,7 +287,7 @@ export default function SavedJobsPage() {
                                         </div>
 
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            {savedJob.jobId && (
+                                            {savedJob.jobId && process.env.NODE_ENV === "development" && (
                                                 <Button
                                                     variant="default"
                                                     size="sm"

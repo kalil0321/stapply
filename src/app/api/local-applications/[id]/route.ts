@@ -6,6 +6,22 @@ import { eq } from "drizzle-orm";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 
+// Development mode check
+function isDevelopment() {
+    return process.env.NODE_ENV === "development";
+}
+
+// Middleware to check if in development mode
+function checkDevelopmentMode() {
+    if (!isDevelopment()) {
+        return NextResponse.json(
+            { error: "Local applications are only available in development mode" },
+            { status: 403 }
+        );
+    }
+    return null;
+}
+
 const openai = createOpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
@@ -14,6 +30,10 @@ export async function POST(
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
+    // Check if in development mode
+    const devCheck = checkDevelopmentMode();
+    if (devCheck) return devCheck;
+
     const { userId } = await auth();
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -192,6 +212,10 @@ export async function GET(
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
+    // Check if in development mode
+    const devCheck = checkDevelopmentMode();
+    if (devCheck) return devCheck;
+
     const { userId } = await auth();
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
