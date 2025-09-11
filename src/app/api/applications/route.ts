@@ -91,7 +91,9 @@ export async function POST(req: NextRequest) {
         });
 
         console.log(`[Application ${jobId}] Creating browser session...`);
-        const session = await browser.sessions.createSession();
+        const session = await browser.sessions.createSession({
+            proxyCountryCode: "us",
+        });
         console.log(`[Application ${jobId}] Browser session created: ${session.id}`);
 
         // Download resume file from URL
