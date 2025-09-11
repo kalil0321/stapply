@@ -1,2 +1,5 @@
 browser-use
 flask
+asyncio
+playwright
+aiohttp
