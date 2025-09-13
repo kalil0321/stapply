@@ -1,8 +1,0 @@
-curl -X POST http://localhost:3001/apply-job \
-  -H "Content-Type: application/json" \
-  -d '{
-    "link": "https://naptha.ai/careers?ashby_jid=96df9dd3-85bc-4cff-b806-973b78bb433a&utm_source=k3pN1XlLyX",
-    "headless": false,
-    "max_steps": 150,
-    "resume_url": "https://kalil0321.com/resume"
-  }'

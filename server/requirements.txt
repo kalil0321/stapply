@@ -1,5 +1,11 @@
 browser-use
 flask
-asyncio
 playwright
+playwright-stealth
 aiohttp
+steel-sdk
+requests
+pydantic
+python-dotenv
+websocket-client
+pillow
