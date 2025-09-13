@@ -19,9 +19,11 @@ import {
     MoreHorizontalIcon,
     ArrowRightIcon,
     BookmarkIcon,
+    TrashIcon,
 } from "lucide-react";
 import { useApplications } from "@/hooks/use-applications";
 import { AddApplicationDialog } from "@/components/add-application-dialog";
+import { DeleteApplicationDialog } from "@/components/delete-application-dialog";
 
 // Helper function to determine status based on application age
 const getApplicationStatus = (createdAt: string) => {
@@ -91,9 +93,11 @@ const getNextStep = (status: string, createdAt: string) => {
 };
 
 export default function ApplicationsPage() {
-    const { applications, isLoading, error, refetchApplications } =
+    const { applications, isLoading, error, refetchApplications, deleteApplication, isDeleting } =
         useApplications();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [applicationToDelete, setApplicationToDelete] = useState<any>(null);
     const router = useRouter();
 
     const handleApplicationAdded = () => {
@@ -102,6 +106,19 @@ export default function ApplicationsPage() {
 
     const handleApplyToSaved = () => {
         router.push("/saved");
+    };
+
+    const handleDeleteClick = (application: any) => {
+        setApplicationToDelete(application);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (applicationToDelete) {
+            await deleteApplication(applicationToDelete.id);
+            setDeleteDialogOpen(false);
+            setApplicationToDelete(null);
+        }
     };
 
     if (isLoading) {
@@ -381,19 +398,25 @@ export default function ApplicationsPage() {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteClick(application);
+                                                                }}
+                                                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                                             >
-                                                                <MoreHorizontalIcon className="size-4" />
+                                                                <TrashIcon className="size-4" />
                                                             </Button>
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
                                                                 className="gap-1"
-                                                                onClick={() =>
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     window.open(
                                                                         application.applicationUrl,
                                                                         "_blank"
-                                                                    )
-                                                                }
+                                                                    );
+                                                                }}
                                                             >
                                                                 <ExternalLinkIcon className="size-3" />
                                                                 View job
@@ -447,19 +470,31 @@ export default function ApplicationsPage() {
                                                         application.appliedDate
                                                     ).toLocaleDateString()}
                                                 </span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-6 px-2"
-                                                    onClick={() =>
-                                                        window.open(
-                                                            application.applicationUrl,
-                                                            "_blank"
-                                                        )
-                                                    }
-                                                >
-                                                    <ExternalLinkIcon className="size-3" />
-                                                </Button>
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        onClick={() =>
+                                                            handleDeleteClick(application)
+                                                        }
+                                                    >
+                                                        <TrashIcon className="size-3" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 px-2"
+                                                        onClick={() =>
+                                                            window.open(
+                                                                application.applicationUrl,
+                                                                "_blank"
+                                                            )
+                                                        }
+                                                    >
+                                                        <ExternalLinkIcon className="size-3" />
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </div>
                                         {index <
@@ -509,6 +544,15 @@ export default function ApplicationsPage() {
                 open={isDialogOpen}
                 onOpenChange={setIsDialogOpen}
                 onApplicationAdded={handleApplicationAdded}
+            />
+
+            <DeleteApplicationDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                onConfirm={handleDeleteConfirm}
+                isDeleting={isDeleting}
+                applicationTitle={applicationToDelete?.jobTitle}
+                companyName={applicationToDelete?.company}
             />
         </>
     );

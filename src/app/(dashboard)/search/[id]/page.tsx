@@ -116,7 +116,7 @@ export default function QueryPage() {
                 setIsPolling(false);
             }
             //TODO: adjust the polling interval based on the number of results
-        }, 2_000); // Poll every 2 seconds
+        }, 1000); // Poll every 1 second
     }, [refetch]);
 
     // Stop polling

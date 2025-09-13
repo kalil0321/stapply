@@ -29,6 +29,7 @@ interface ApplicationSheetProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     savedJob: SavedJob | null;
+    isLocal: boolean;
 }
 
 interface ProfileData {
@@ -50,10 +51,11 @@ export function ApplicationSheet({
     isOpen,
     onOpenChange,
     savedJob,
+    isLocal,
 }: ApplicationSheetProps) {
     const router = useRouter();
     const [applying, setApplying] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [applicationError, setApplicationError] = useState<string | null>(null);
     const [instructions, setInstructions] = useState("");
 
     const fetchProfile = async () => {
@@ -86,20 +88,19 @@ export function ApplicationSheet({
         retry: 1,
     });
 
+    // Reset application error when sheet opens/closes
     useEffect(() => {
-        if (profileError instanceof Error) {
-            setError(profileError.message);
-        } else {
-            setError(null);
+        if (isOpen) {
+            setApplicationError(null);
         }
-    }, [profileError]);
+    }, [isOpen]);
 
     const applyMutation = useMutation({
         mutationFn: async (jobId: string) => {
             const response = await fetch("/api/applications", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ jobId, instructions }),
+                body: JSON.stringify({ jobId, instructions, isLocal }),
             });
 
             if (!response.ok) {
@@ -107,8 +108,17 @@ export function ApplicationSheet({
                 if (response.status === 409) {
                     throw new Error("You have already applied to this job");
                 }
+                if (response.status === 500 && errorData.error?.includes("local server")) {
+                    throw new Error("Unable to connect to local automation server. Please ensure the server is running and try again.");
+                }
+                if (response.status === 400 && errorData.error?.includes("profile")) {
+                    throw new Error("Profile incomplete. Please update your profile with all required information.");
+                }
+                if (response.status === 400 && errorData.error?.includes("resume")) {
+                    throw new Error("Resume not found. Please upload your resume in your profile.");
+                }
                 throw new Error(
-                    errorData.error || "Failed to submit application"
+                    errorData.error || "Failed to submit application. Please try again."
                 );
             }
 
@@ -120,18 +130,29 @@ export function ApplicationSheet({
         if (!savedJob?.jobId) return;
 
         setApplying(true);
-        setError(null);
+        setApplicationError(null);
 
         try {
             const data = await applyMutation.mutateAsync(savedJob.jobId);
             onOpenChange(false);
-            router.push(`/application/${data.application.id}`);
+
+            if (isLocal) {
+                const params = new URLSearchParams({
+                    live: data.live_url,
+                    fallback: data.fallback_url,
+                    replay: data.replay_url,
+                    task_id: data.task_id
+                });
+                router.push(`/application/${savedJob.jobId}?${params.toString()}`);
+            } else {
+                router.push(`/application/${data.application.id}`);
+            }
         } catch (err) {
             console.error("Error submitting application:", err);
-            setError(
+            setApplicationError(
                 err instanceof Error
                     ? err.message
-                    : "Failed to submit application"
+                    : "Failed to submit application. Please try again."
             );
         } finally {
             setApplying(false);
@@ -212,7 +233,7 @@ export function ApplicationSheet({
                         <Loader2Icon className="w-6 h-6 animate-spin" />
                         <span className="ml-2">Loading profile...</span>
                     </div>
-                ) : error ? (
+                ) : profileError ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
                         <AlertCircle className="w-12 h-12 text-destructive mb-2" />
                         <div className="space-y-2">
@@ -220,14 +241,14 @@ export function ApplicationSheet({
                                 Unable to Load Profile
                             </h3>
                             <p className="text-sm text-muted-foreground max-w-md">
-                                {error}
+                                {profileError instanceof Error ? profileError.message : "Failed to load your profile information"}
                             </p>
                         </div>
                         <div className="flex gap-3">
                             <Button variant="outline" onClick={() => refetchProfile()}>
                                 Try Again
                             </Button>
-                            {error.includes("Authentication") ? (
+                            {profileError instanceof Error && profileError.message.includes("Authentication") ? (
                                 <Button
                                     variant="default"
                                     onClick={() => {
@@ -590,11 +611,55 @@ export function ApplicationSheet({
                             </div>
                         </div>
 
-                        {error && (
-                            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                                <p className="text-sm text-destructive">
-                                    {error}
-                                </p>
+                        {applicationError && (
+                            <div className="space-y-3">
+                                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
+                                    <div className="flex items-start gap-3">
+                                        <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+                                        <div className="space-y-2 flex-1">
+                                            <h4 className="font-medium text-destructive">
+                                                Application Failed
+                                            </h4>
+                                            <p className="text-sm text-destructive/80">
+                                                {applicationError}
+                                            </p>
+                                            <div className="flex gap-2 pt-1">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    onClick={() => setApplicationError(null)}
+                                                    className="h-8 text-xs"
+                                                >
+                                                    Dismiss
+                                                </Button>
+                                                {applicationError.includes("local automation server") && (
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm"
+                                                        onClick={handleApply}
+                                                        disabled={applying}
+                                                        className="h-8 text-xs"
+                                                    >
+                                                        {applying ? "Retrying..." : "Retry"}
+                                                    </Button>
+                                                )}
+                                                {(applicationError.includes("profile") || applicationError.includes("resume")) && (
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            onOpenChange(false);
+                                                            router.push("/profile?update=true");
+                                                        }}
+                                                        className="h-8 text-xs"
+                                                    >
+                                                        Update Profile
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </Tabs>

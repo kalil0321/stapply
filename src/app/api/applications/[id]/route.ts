@@ -135,3 +135,87 @@ export async function GET(
         );
     }
 }
+
+// Delete an application
+export async function DELETE(
+    req: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    const { userId } = await auth();
+    if (!userId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+        const { id } = await params;
+
+        if (!id) {
+            return NextResponse.json(
+                { error: "Application ID is required" },
+                { status: 400 }
+            );
+        }
+
+        console.log("Deleting application with ID:", id, "for user:", userId);
+        
+        // First, verify the application exists and belongs to the user
+        const [existingApplication] = await db
+            .select()
+            .from(applications)
+            .where(eq(applications.id, id))
+            .limit(1);
+
+        if (!existingApplication) {
+            return NextResponse.json(
+                { error: "Application not found" },
+                { status: 404 }
+            );
+        }
+
+        // Check if the user owns this application
+        if (existingApplication.userId !== userId) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        // Optional: Cancel the browser automation task if it's still running
+        try {
+            const apiKey = process.env.BROWSER_USE_API_KEY;
+            if (apiKey && existingApplication.taskId) {
+                const browser = new BrowserUseClient({
+                    apiKey: apiKey,
+                });
+
+                // Try to get the task to check its status
+                const task = await browser.tasks.getTask(existingApplication.taskId);
+                console.log("Task status before deletion:", task?.status);
+                
+                // If task is still running, we could potentially cancel it
+                // Note: BrowserUse SDK might not have a cancel method, but we log it for now
+                if (task && ['pending', 'in_progress'].includes(task.status)) {
+                    console.log("Task is still running, but continuing with deletion");
+                }
+            }
+        } catch (browserError) {
+            console.warn("Failed to check/cancel browser task:", browserError);
+            // Don't fail the deletion if browser API fails
+        }
+
+        // Delete the application from the database
+        await db
+            .delete(applications)
+            .where(eq(applications.id, id));
+
+        console.log("Application deleted successfully:", id);
+        
+        return NextResponse.json({ 
+            message: "Application deleted successfully",
+            id: id 
+        });
+    } catch (error) {
+        console.error("Error deleting application:", error);
+        return NextResponse.json(
+            { error: "Failed to delete application" },
+            { status: 500 }
+        );
+    }
+}

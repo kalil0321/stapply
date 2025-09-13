@@ -41,11 +41,11 @@ const data = {
             icon: BriefcaseIcon,
         },
         // Only show Local Applications in development mode
-        ...(process.env.NODE_ENV === "development" ? [{
-            title: "Local Applications",
-            url: "/local-applications",
-            icon: RocketIcon,
-        }] : []),
+        // ...(process.env.NODE_ENV === "development" ? [{
+        //     title: "Local Applications",
+        //     url: "/local-applications",
+        //     icon: RocketIcon,
+        // }] : []),
         {
             title: "Saved Jobs",
             url: "/saved",

@@ -68,6 +68,39 @@ export function useApplications() {
         return createApplicationMutation.mutateAsync({ jobId });
     };
 
+    const deleteApplicationMutation = useMutation({
+        mutationFn: async (applicationId: string) => {
+            const response = await fetch(`/api/applications/${applicationId}`, {
+                method: "DELETE",
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(
+                    error.error || "Failed to delete application"
+                );
+            }
+
+            return response.json();
+        },
+        onSuccess: async () => {
+            toast.success("Application deleted successfully!");
+            await refetchApplications();
+        },
+        onError: (error) => {
+            console.error("Error deleting application:", error);
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to delete application"
+            );
+        },
+    });
+
+    const deleteApplication = async (applicationId: string) => {
+        return deleteApplicationMutation.mutateAsync(applicationId);
+    };
+
     // Helper function to get application stats
     const getApplicationStats = () => {
         const total = applications.length;
@@ -95,6 +128,8 @@ export function useApplications() {
         error,
         createApplication,
         isCreating: createApplicationMutation.isPending,
+        deleteApplication,
+        isDeleting: deleteApplicationMutation.isPending,
         refetchApplications,
         getApplicationStats,
         hasAppliedToJob,

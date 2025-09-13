@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
-import { 
-    Loader2Icon, 
-    AlertCircleIcon, 
-    ArrowLeftIcon, 
-    ExternalLinkIcon, 
-    CheckCircleIcon, 
-    XCircleIcon, 
-    PauseCircleIcon, 
-    PlayCircleIcon, 
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import {
+    Loader2Icon,
+    AlertCircleIcon,
+    ArrowLeftIcon,
+    ExternalLinkIcon,
+    CheckCircleIcon,
+    XCircleIcon,
+    PauseCircleIcon,
+    PlayCircleIcon,
     StopCircleIcon,
     InfoIcon,
     ClockIcon
@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Application } from "@/lib/types";
 import Link from "next/link";
+import { LiveAutomationViewer } from "@/components/live-automation-viewer";
 
 const TaskStatus = {
     Started: "started",
@@ -113,7 +114,34 @@ const getSuccessInfo = (isSuccess: boolean | null) => {
 export default function ApplicationPage() {
     const { id } = useParams();
     const router = useRouter();
-    
+
+    const searchParams = useSearchParams();
+    const liveUrl = searchParams.get("live");
+    const fallbackUrl = searchParams.get("fallback");
+    const replayUrl = searchParams.get("replay");
+    const taskId = searchParams.get("task_id");
+
+    // If we have live automation URLs, show the live viewer
+    if (liveUrl && fallbackUrl && replayUrl && taskId) {
+        return (
+            <LiveAutomationViewer
+                liveUrl={liveUrl}
+                fallbackUrl={fallbackUrl}
+                replayUrl={replayUrl}
+                taskId={taskId}
+            />
+        );
+    }
+
+    // Legacy support: if we only have liveUrl, show simple iframe
+    if (liveUrl) {
+        return (
+            <div className="flex-1 flex items-center justify-center p-6">
+                <iframe src={liveUrl} className="w-full h-full border border-border rounded-lg" />
+            </div>
+        );
+    }
+
     const fetchApplication = async () => {
         if (!id) {
             throw new Error("Invalid application ID");
@@ -123,7 +151,7 @@ export default function ApplicationPage() {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
             console.error("API Error:", response.status, errorData);
-            
+
             if (response.status === 401) {
                 router.push("/sign-in");
                 throw new Error("Unauthorized - redirecting to sign in");
@@ -319,9 +347,9 @@ export default function ApplicationPage() {
                                 {status || "Unknown"}
                             </Badge>
                         </div>
-                        
+
                         <Separator orientation="vertical" className="h-5" />
-                        
+
                         {/* Success Status */}
                         {isSuccess !== null && (
                             <div className="flex items-center gap-2">
@@ -396,9 +424,9 @@ export default function ApplicationPage() {
                                 <div>
                                     <h3 className="font-medium mb-1">Browser Session Unavailable</h3>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
-                                        {shouldHaveUrl 
+                                        {shouldHaveUrl
                                             ? "The browser session URL is not available yet. Please refresh the page."
-                                            : isTaskComplete 
+                                            : isTaskComplete
                                                 ? "Browser session is no longer available as the task has completed."
                                                 : "Browser session will be available when the task starts running."
                                         }

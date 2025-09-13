@@ -30,6 +30,7 @@ export default function SavedJobsPage() {
     const [showApplicationSheet, setShowApplicationSheet] = useState(false);
     const [selectedJob, setSelectedJob] = useState<SavedJob | null>(null);
     const [showAddJobDialog, setShowAddJobDialog] = useState(false);
+    const [isLocal, setIsLocal] = useState(false);
 
     useEffect(() => {
         const loadSavedJobs = async () => {
@@ -48,9 +49,10 @@ export default function SavedJobsPage() {
         }
     };
 
-    const handleApplyClick = (savedJob: SavedJob) => {
+    const handleApplyClick = (savedJob: SavedJob, isLocal: boolean) => {
         setSelectedJob(savedJob);
         setShowApplicationSheet(true);
+        setIsLocal(isLocal);
     };
 
     const handleJobAdded = async () => {
@@ -294,24 +296,26 @@ export default function SavedJobsPage() {
                                                     asChild
                                                     className=""
                                                 >
-                                                    <Link
-                                                        href={`/local-applications/${savedJob.jobId}`}
+                                                    <Button
+                                                    onClick={() =>
+                                                        handleApplyClick(savedJob, true)
+                                                    }
                                                         className="flex items-center gap-1"
                                                     >
                                                         <RocketIcon className="w-4 h-4" />
-                                                        Apply Locally
-                                                    </Link>
+                                                        Apply
+                                                    </Button>
                                                 </Button>
                                             )}
-                                            <Button
+                                            {/* <Button
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() =>
-                                                    handleApplyClick(savedJob)
+                                                    handleApplyClick(savedJob, false)
                                                 }
                                             >
                                                 Apply
-                                            </Button>
+                                            </Button> */}
                                             {savedJob.job?.link && (
                                                 <Button
                                                     variant="outline"
@@ -361,6 +365,7 @@ export default function SavedJobsPage() {
                 isOpen={showApplicationSheet}
                 onOpenChange={setShowApplicationSheet}
                 savedJob={selectedJob}
+                isLocal={isLocal}
             />
 
             <AddExternalJobDialog

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { jobId, instructions } = await req.json();
+        const { jobId, instructions, isLocal } = await req.json();
 
         if (!jobId) {
             return NextResponse.json(
@@ -74,6 +74,45 @@ export async function POST(req: NextRequest) {
                 { error: "Resume not found. Please upload your resume first." },
                 { status: 400 }
             );
+        }
+
+        if (isLocal) {
+            const response = await fetch('http://localhost:3001/apply-job', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ job_url: jobExists.link, instructions, resume_url: userProfile.resumeUrl, profile: userProfile }),
+            });
+
+            if (!response.ok) {
+                return NextResponse.json(
+                    { error: "Failed to apply to job through local server" },
+                    { status: 500 }
+                );
+            }
+
+            const data = await response.json();
+
+            // Store the application in the database
+            // const [newApplication] = await db
+            //     .insert(applications)
+            //     .values({
+            //         userId,
+            //         jobId,
+            //         // steel session id as task id
+            //         taskId: data.task_id,
+            //     })
+            //     .returning();
+
+            // console.log(`[Application ${jobId}] Application saved with ID: ${newApplication.id}`);
+
+            return NextResponse.json({ 
+                live_url: data.live_url,
+                fallback_url: data.fallback_url,
+                replay_url: data.replay_url,
+                task_id: data.task_id
+            });
         }
 
         // Initialize browser automation
