@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Browser Stream - {{ session_id }}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 30px;
+            font-size: 2em;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+        }
+
+        .stream-container {
+            position: relative;
+            background: #2d2d2d;
+            border-radius: 12px;
+            border: 2px solid #444;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        #liveStream {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: #000;
+            min-height: 600px;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .loading-spinner {
+            border: 4px solid #444;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.danger {
+            background: #f44336;
+        }
+
+        .btn.danger:hover {
+            background: #da190b;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #4CAF50;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .info {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .error {
+            background: #4a1a1a;
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #f44336;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .tab-info {
+            background: #1a4a4a;
+            color: #4dd0e1;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .quality-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quality-controls select {
+            padding: 8px 12px;
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 4px;
+        }
+
+        .frame-counter {
+            background: #1a3a1a;
+            color: #81c784;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 Live Browser Stream</h1>
+
+        <div class="controls">
+            <button id="connectBtn" class="btn">Connect Live Stream</button>
+            <button id="disconnectBtn" class="btn danger" style="display: none;">Disconnect</button>
+            <button id="fallbackBtn" class="btn" style="background: #ff9800;">Fallback to Screenshots</button>
+            
+            <div class="quality-controls">
+                <label>Quality:</label>
+                <select id="qualitySelect">
+                    <option value="60">Low (60%)</option>
+                    <option value="80" selected>Medium (80%)</option>
+                    <option value="95">High (95%)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div id="statusIndicator" class="status-indicator"></div>
+            <span id="statusText">Disconnected</span>
+            <div class="frame-counter">
+                Frames: <span id="frameCount">0</span>
+            </div>
+            <div class="frame-counter">
+                Saved: <span id="savedCount">0</span>
+            </div>
+        </div>
+
+        <div class="stream-container">
+            <img id="liveStream" alt="Live browser stream" />
+            <div id="loadingOverlay" class="loading-overlay">
+                <div class="loading-spinner"></div>
+                <div>Connecting to live stream...</div>
+            </div>
+        </div>
+
+        <div class="info">
+            <strong>Session ID:</strong> {{ session_id }}<br>
+            <strong>Chrome Debug Port:</strong> <span id="debugPort">Loading...</span><br>
+            <strong>Stream Type:</strong> <span id="streamType">Chrome DevTools Screencast</span><br>
+            <strong>Last Frame:</strong> <span id="lastFrame">Never</span><br>
+            <strong>Connection Time:</strong> <span id="connectionTime">-</span>
+            
+            <div id="tabInfo" class="tab-info" style="display: none;">
+                <strong>Active Tab:</strong> <span id="tabTitle">-</span><br>
+                <strong>URL:</strong> <span id="tabUrl">-</span>
+            </div>
+        </div>
+
+        <div id="errorMsg" class="error"></div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let isConnected = false;
+        let frameCount = 0;
+        let savedCount = 0;
+        let connectionStartTime = null;
+
+        const liveStream = document.getElementById('liveStream');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const frameCountEl = document.getElementById('frameCount');
+        const savedCountEl = document.getElementById('savedCount');
+        const lastFrameEl = document.getElementById('lastFrame');
+        const connectionTimeEl = document.getElementById('connectionTime');
+        const debugPortEl = document.getElementById('debugPort');
+        const errorMsg = document.getElementById('errorMsg');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const fallbackBtn = document.getElementById('fallbackBtn');
+        const tabInfo = document.getElementById('tabInfo');
+        const tabTitle = document.getElementById('tabTitle');
+        const tabUrl = document.getElementById('tabUrl');
+
+        // Fetch Chrome port information for this task
+        async function fetchTaskInfo() {
+            try {
+                const response = await fetch('/api/task-instances/{{ session_id }}');
+                if (response.ok) {
+                    const taskInfo = await response.json();
+                    debugPortEl.textContent = taskInfo.port || 'Unknown';
+                } else {
+                    debugPortEl.textContent = '9222 (fallback)';
+                }
+            } catch (error) {
+                console.error('Failed to fetch task info:', error);
+                debugPortEl.textContent = '9222 (fallback)';
+            }
+        }
+
+        function updateConnectionTime() {
+            if (connectionStartTime) {
+                const elapsed = Math.floor((Date.now() - connectionStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                connectionTimeEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function connectLiveStream() {
+            if (isConnected) return;
+
+            connectionStartTime = Date.now();
+            frameCount = 0;
+            savedCount = 0;
+            
+            statusIndicator.className = 'status-indicator';
+            statusText.textContent = 'Connecting...';
+            loadingOverlay.style.display = 'flex';
+            connectBtn.style.display = 'none';
+            disconnectBtn.style.display = 'inline-block';
+            errorMsg.style.display = 'none';
+
+            // Start connection time counter
+            const timeInterval = setInterval(updateConnectionTime, 1000);
+
+            eventSource = new EventSource(`/api/live-stream/{{ session_id }}`);
+
+            eventSource.onopen = function() {
+                isConnected = true;
+                statusIndicator.className = 'status-indicator connected';
+                statusText.textContent = 'Connected - Live Stream Active';
+                loadingOverlay.style.display = 'none';
+                console.log('✅ Live stream connected');
+            };
+
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'frame') {
+                        // Update frame display
+                        const imageUrl = `data:image/png;base64,${data.data}`;
+                        liveStream.src = imageUrl;
+                        
+                        frameCount = data.frame_number || frameCount + 1;
+                        savedCount = frameCount; // Frames are auto-saved
+                        frameCountEl.textContent = frameCount;
+                        savedCountEl.textContent = savedCount;
+                        lastFrameEl.textContent = new Date().toLocaleTimeString();
+                        
+                        console.log(`📸 Received frame ${frameCount}`);
+                        
+                    } else if (data.type === 'status') {
+                        console.log('📋 Status:', data.message);
+                        if (data.tab_url && data.tab_title) {
+                            tabTitle.textContent = data.tab_title;
+                            tabUrl.textContent = data.tab_url;
+                            tabInfo.style.display = 'block';
+                        }
+                        
+                    } else if (data.type === 'error') {
+                        console.error('❌ Stream error:', data.message);
+                        showError(`Stream error: ${data.message}`);
+                        
+                    } else if (data.type === 'keepalive') {
+                        console.log('💓 Keepalive received');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error parsing stream data:', error);
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                console.error('❌ EventSource error:', event);
+                showError('Live stream connection lost. Trying to reconnect...');
+                
+                // Clean up
+                clearInterval(timeInterval);
+                isConnected = false;
+                statusIndicator.className = 'status-indicator';
+                statusText.textContent = 'Connection Error';
+                connectBtn.style.display = 'inline-block';
+                disconnectBtn.style.display = 'none';
+                loadingOverlay.style.display = 'flex';
+                
+                // Auto-reconnect after 3 seconds
+                setTimeout(() => {
+                    if (!isConnected) {
+                        console.log('🔄 Attempting to reconnect...');
+                        connectLiveStream();
+                    }
+                }, 3000);
+            };
+        }
+
+        function disconnectLiveStream() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            
+            isConnected = false;
+            connectionStartTime = null;
+            statusIndicator.className = 'status-indicator';
+            statusText.textContent = 'Disconnected';
+            connectBtn.style.display = 'inline-block';
+            disconnectBtn.style.display = 'none';
+            loadingOverlay.style.display = 'flex';
+            connectionTimeEl.textContent = '-';
+            
+            console.log('🔌 Live stream disconnected');
+        }
+
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+        }
+
+        function fallbackToScreenshots() {
+            // Redirect to screenshot-based viewer
+            window.location.href = `/screencast/{{ session_id }}`;
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connectLiveStream);
+        disconnectBtn.addEventListener('click', disconnectLiveStream);
+        fallbackBtn.addEventListener('click', fallbackToScreenshots);
+
+        // Initialize
+        window.addEventListener('load', () => {
+            fetchTaskInfo();
+            // Auto-connect on page load
+            connectLiveStream();
+        });
+
+        // Clean up when page unloads
+        window.addEventListener('beforeunload', () => {
+            disconnectLiveStream();
+        });
+    </script>
+</body>
+</html>

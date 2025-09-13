@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Replay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        #stream {
+            width: 100%;
+            height: calc(100vh - 80px);
+            object-fit: contain;
+            background: #000;
+            display: block;
+        }
+        
+        .controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 0 20px;
+            color: white;
+        }
+        
+        .play-btn, .prev-btn, .next-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            min-width: 80px;
+        }
+        
+        .play-btn:hover, .prev-btn:hover, .next-btn:hover {
+            background: #45a049;
+        }
+        
+        .progress-container {
+            flex: 1;
+            max-width: 400px;
+            margin: 0 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        
+        .frame-info {
+            text-align: center;
+            font-size: 12px;
+            color: #ccc;
+            margin-top: 5px;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 18px;
+            z-index: 100;
+        }
+        
+        .error {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4444;
+            font-size: 18px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+        }
+        
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .speed-control select {
+            background: #333;
+            color: white;
+            border: 1px solid #666;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <img id="stream" alt="Browser Replay" />
+    <div id="loading" class="loading">Loading screenshots...</div>
+    <div id="error" class="error">No screenshots found for this session</div>
+    
+    <div class="controls" id="controls" style="display: none;">
+        <button id="prevBtn" class="prev-btn">◀ Prev</button>
+        <button id="playBtn" class="play-btn">▶ Play</button>
+        <button id="nextBtn" class="next-btn">Next ▶</button>
+        
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="frame-info" id="frameInfo">Frame 1 of 1</div>
+        </div>
+        
+        <div class="speed-control">
+            <label>Speed:</label>
+            <select id="speedSelect">
+                <option value="2000">0.5x</option>
+                <option value="1000" selected>1x</option>
+                <option value="500">2x</option>
+                <option value="250">4x</option>
+            </select>
+        </div>
+    </div>
+
+    <script>
+        let screenshots = [];
+        let currentFrame = 0;
+        let isPlaying = false;
+        let playInterval = null;
+        let playSpeed = 1000; // milliseconds between frames
+        
+        const stream = document.getElementById('stream');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const controls = document.getElementById('controls');
+        const playBtn = document.getElementById('playBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const frameInfo = document.getElementById('frameInfo');
+        const speedSelect = document.getElementById('speedSelect');
+        
+        function showLoading(message = 'Loading screenshots...') {
+            loading.style.display = 'block';
+            loading.textContent = message;
+            error.style.display = 'none';
+            controls.style.display = 'none';
+        }
+        
+        function showError(message) {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.textContent = message;
+            controls.style.display = 'none';
+        }
+        
+        function showControls() {
+            loading.style.display = 'none';
+            error.style.display = 'none';
+            controls.style.display = 'flex';
+        }
+        
+        async function loadScreenshots() {
+            try {
+                const response = await fetch('/api/task-screenshots/{{ session_id }}');
+                const data = await response.json();
+                
+                if (data.screenshots && data.screenshots.length > 0) {
+                    screenshots = data.screenshots;
+                    currentFrame = 0;
+                    showFrame(0);
+                    showControls();
+                    updateFrameInfo();
+                } else {
+                    showError('No screenshots found for this session. The automation may not have started yet.');
+                }
+                
+            } catch (err) {
+                console.error('Error loading screenshots:', err);
+                showError('Failed to load screenshots');
+            }
+        }
+        
+        function showFrame(index) {
+            if (index < 0 || index >= screenshots.length) return;
+            
+            currentFrame = index;
+            const screenshot = screenshots[index];
+            stream.src = screenshot.url + '?' + Date.now(); // Cache busting
+            
+            updateProgress();
+            updateFrameInfo();
+        }
+        
+        function updateProgress() {
+            if (screenshots.length === 0) return;
+            
+            const progress = (currentFrame / (screenshots.length - 1)) * 100;
+            progressFill.style.width = progress + '%';
+        }
+        
+        function updateFrameInfo() {
+            frameInfo.textContent = `Frame ${currentFrame + 1} of ${screenshots.length}`;
+        }
+        
+        function play() {
+            if (isPlaying) return;
+            
+            isPlaying = true;
+            playBtn.textContent = '⏸ Pause';
+            
+            playInterval = setInterval(() => {
+                if (currentFrame < screenshots.length - 1) {
+                    showFrame(currentFrame + 1);
+                } else {
+                    // Loop back to start
+                    showFrame(0);
+                }
+            }, playSpeed);
+        }
+        
+        function pause() {
+            if (!isPlaying) return;
+            
+            isPlaying = false;
+            playBtn.textContent = '▶ Play';
+            
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+            }
+        }
+        
+        function togglePlay() {
+            if (isPlaying) {
+                pause();
+            } else {
+                play();
+            }
+        }
+        
+        function nextFrame() {
+            if (currentFrame < screenshots.length - 1) {
+                showFrame(currentFrame + 1);
+            }
+        }
+        
+        function prevFrame() {
+            if (currentFrame > 0) {
+                showFrame(currentFrame - 1);
+            }
+        }
+        
+        function setSpeed(speed) {
+            playSpeed = parseInt(speed);
+            if (isPlaying) {
+                pause();
+                play();
+            }
+        }
+        
+        // Event listeners
+        playBtn.addEventListener('click', togglePlay);
+        nextBtn.addEventListener('click', nextFrame);
+        prevBtn.addEventListener('click', prevFrame);
+        speedSelect.addEventListener('change', (e) => setSpeed(e.target.value));
+        
+        // Progress bar click
+        progressBar.addEventListener('click', (e) => {
+            const rect = progressBar.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const progress = clickX / rect.width;
+            const frameIndex = Math.floor(progress * screenshots.length);
+            showFrame(Math.max(0, Math.min(frameIndex, screenshots.length - 1)));
+        });
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case ' ':
+                case 'Enter':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    prevFrame();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    nextFrame();
+                    break;
+            }
+        });
+        
+        // Auto-refresh screenshots periodically if none found
+        let refreshInterval = null;
+        function startAutoRefresh() {
+            refreshInterval = setInterval(() => {
+                if (screenshots.length === 0) {
+                    loadScreenshots();
+                } else {
+                    clearInterval(refreshInterval);
+                    refreshInterval = null;
+                }
+            }, 5000); // Check every 5 seconds
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            loadScreenshots();
+            startAutoRefresh();
+        });
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            pause();
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>

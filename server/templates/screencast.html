@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Automation Live View - {{ session_id }}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #2d2d2d;
+            border-radius: 8px;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #10b981;
+            animation: pulse 2s infinite;
+        }
+        .status-indicator.disconnected {
+            background-color: #ef4444;
+            animation: none;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .viewer-container {
+            border: 2px solid #404040;
+            border-radius: 8px;
+            background-color: #ffffff;
+            overflow: hidden;
+            position: relative;
+        }
+        .screenshot {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: opacity 0.3s ease;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+            font-size: 18px;
+        }
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background-color: #2563eb;
+        }
+        .btn:disabled {
+            background-color: #6b7280;
+            cursor: not-allowed;
+        }
+        .info {
+            background-color: #374151;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .error {
+            background-color: #7f1d1d;
+            color: #fca5a5;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Browser Automation Live View</h1>
+        <div class="status">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span id="statusText">Connecting...</span>
+        </div>
+    </div>
+
+    <div class="viewer-container">
+        <img id="screenshot" class="screenshot" alt="Browser Screenshot" style="display: none;">
+        <div id="loading" class="loading">Connecting to browser...</div>
+    </div>
+
+    <div class="controls">
+        <button id="pauseBtn" class="btn" onclick="togglePause()">Pause</button>
+        <button id="refreshBtn" class="btn" onclick="forceRefresh()">Refresh</button>
+        <span>Update Rate: </span>
+        <select id="updateRate" onchange="changeUpdateRate()">
+            <option value="1000">1 second</option>
+            <option value="2000" selected>2 seconds</option>
+            <option value="5000">5 seconds</option>
+        </select>
+    </div>
+
+    <div class="info">
+        <strong>Session ID:</strong> {{ session_id }}<br>
+        <strong>Chrome Debug Port:</strong> <span id="debugPort">Loading...</span><br>
+        <strong>Last Update:</strong> <span id="lastUpdate">Never</span><br>
+        <strong>Screenshots Taken:</strong> <span id="screenshotCount">0</span><br>
+        <strong>Screenshots Saved:</strong> <span id="savedCount">0</span>
+    </div>
+
+    <div id="errorMsg" class="error"></div>
+
+    <script>
+        let isPaused = false;
+        let updateInterval = 2000;
+        let screenshotCount = 0;
+        let intervalId;
+
+        const screenshot = document.getElementById('screenshot');
+        const loading = document.getElementById('loading');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const lastUpdate = document.getElementById('lastUpdate');
+        const screenshotCountEl = document.getElementById('screenshotCount');
+        const savedCountEl = document.getElementById('savedCount');
+        const debugPortEl = document.getElementById('debugPort');
+        const errorMsg = document.getElementById('errorMsg');
+        const pauseBtn = document.getElementById('pauseBtn');
+
+        // Fetch Chrome port information for this task
+        async function fetchTaskInfo() {
+            try {
+                const response = await fetch('/api/task-instances/{{ session_id }}');
+                if (response.ok) {
+                    const taskInfo = await response.json();
+                    debugPortEl.textContent = taskInfo.port || 'Unknown';
+                } else {
+                    debugPortEl.textContent = '9222 (fallback)';
+                }
+            } catch (error) {
+                console.error('Failed to fetch task info:', error);
+                debugPortEl.textContent = '9222 (fallback)';
+            }
+        }
+
+        async function takeScreenshot() {
+            if (isPaused) return;
+
+            try {
+                const response = await fetch('/api/screenshot/{{ session_id }}');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
+                
+                screenshot.onload = () => {
+                    URL.revokeObjectURL(imageUrl);
+                    loading.style.display = 'none';
+                    screenshot.style.display = 'block';
+                    
+                    screenshotCount++;
+                    screenshotCountEl.textContent = screenshotCount;
+                    savedCountEl.textContent = screenshotCount; // Screenshots are saved to disk
+                    lastUpdate.textContent = new Date().toLocaleTimeString();
+                    
+                    statusIndicator.className = 'status-indicator';
+                    statusText.textContent = 'Connected';
+                    errorMsg.style.display = 'none';
+                };
+                
+                screenshot.src = imageUrl;
+
+            } catch (error) {
+                console.error('Screenshot error:', error);
+                statusIndicator.className = 'status-indicator disconnected';
+                statusText.textContent = 'Connection Error';
+                errorMsg.textContent = `Error: ${error.message}`;
+                errorMsg.style.display = 'block';
+                
+                // Show loading again if screenshot failed
+                if (screenshot.style.display === 'none') {
+                    loading.style.display = 'block';
+                    loading.textContent = 'Connection lost, retrying...';
+                }
+            }
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+            
+            if (isPaused) {
+                statusText.textContent = 'Paused';
+                statusIndicator.className = 'status-indicator disconnected';
+            } else {
+                takeScreenshot(); // Take immediate screenshot when resuming
+            }
+        }
+
+        function forceRefresh() {
+            takeScreenshot();
+        }
+
+        function changeUpdateRate() {
+            const select = document.getElementById('updateRate');
+            updateInterval = parseInt(select.value);
+            
+            // Restart the interval with new rate
+            clearInterval(intervalId);
+            startScreenshots();
+        }
+
+        function startScreenshots() {
+            // Take first screenshot immediately
+            takeScreenshot();
+            
+            // Then set up interval
+            intervalId = setInterval(takeScreenshot, updateInterval);
+        }
+
+        // Start taking screenshots when page loads
+        window.addEventListener('load', () => {
+            fetchTaskInfo(); // Get Chrome port info
+            startScreenshots();
+        });
+
+        // Clean up when page unloads
+        window.addEventListener('beforeunload', () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Stream</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+        
+        #stream {
+            width: 100%;
+            height: 100vh;
+            object-fit: contain;
+            background: #000;
+            display: block;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            z-index: 100;
+        }
+        
+        .error {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4444;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+        }
+        
+        .replay-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 200;
+            display: none;
+        }
+        
+        .replay-button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <img id="stream" alt="Browser Stream" />
+    <div id="loading" class="loading">Browser is starting up...</div>
+    <div id="error" class="error">Connection failed. Retrying...</div>
+    <button id="replayBtn" class="replay-button">📹 View Replay</button>
+
+    <script>
+        let eventSource = null;
+        let isConnected = false;
+        let reconnectAttempts = 0;
+        let screenshotInterval = null;
+        let fallbackToScreenshots = false;
+        let readinessCheckInterval = null;
+        const maxReconnectAttempts = 5;
+        
+        const stream = document.getElementById('stream');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const replayBtn = document.getElementById('replayBtn');
+        
+        function showLoading(message = 'Browser is starting up...') {
+            loading.style.display = 'block';
+            loading.textContent = message;
+            error.style.display = 'none';
+        }
+        
+        function showError(message) {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.textContent = message || 'Connection failed. Retrying...';
+        }
+        
+        function hideMessages() {
+            loading.style.display = 'none';
+            error.style.display = 'none';
+        }
+        
+        function showReplayButton() {
+            replayBtn.style.display = 'block';
+        }
+        
+        function hideReplayButton() {
+            replayBtn.style.display = 'none';
+        }
+        
+        async function checkForScreenshots() {
+            try {
+                const response = await fetch('/api/task-screenshots/{{ session_id }}');
+                const data = await response.json();
+                
+                if (data.screenshots && data.screenshots.length > 0) {
+                    showReplayButton();
+                    return true;
+                }
+                return false;
+            } catch (err) {
+                return false;
+            }
+        }
+        
+        async function checkBrowserReady() {
+            try {
+                const response = await fetch('/api/task-ready/{{ session_id }}');
+                const data = await response.json();
+                
+                if (data.ready) {
+                    // Browser is ready, stop checking and connect
+                    if (readinessCheckInterval) {
+                        clearInterval(readinessCheckInterval);
+                        readinessCheckInterval = null;
+                    }
+                    showLoading('Connecting to browser...');
+                    connectLiveStream();
+                    return true;
+                } else {
+                    // Browser not ready yet, show status
+                    showLoading(data.message || 'Browser is starting up...');
+                    return false;
+                }
+            } catch (err) {
+                console.error('Error checking browser readiness:', err);
+                showLoading('Checking browser status...');
+                return false;
+            }
+        }
+        
+        function startReadinessCheck() {
+            // Check for existing screenshots first
+            checkForScreenshots();
+            
+            // Check browser readiness
+            checkBrowserReady();
+            
+            // Then check every 2 seconds until ready
+            readinessCheckInterval = setInterval(async () => {
+                const ready = await checkBrowserReady();
+                if (ready && readinessCheckInterval) {
+                    clearInterval(readinessCheckInterval);
+                    readinessCheckInterval = null;
+                } else {
+                    // Also check for screenshots periodically
+                    checkForScreenshots();
+                }
+            }, 2000);
+        }
+        
+        function connectLiveStream() {
+            if (isConnected) return;
+            
+            showLoading('Connecting to live stream...');
+            
+            eventSource = new EventSource('/api/live-stream/{{ session_id }}');
+            
+            eventSource.onopen = function() {
+                console.log('✅ Connected to live stream');
+                isConnected = true;
+                reconnectAttempts = 0;
+                hideMessages();
+            };
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'frame' && data.data) {
+                        // Update stream image
+                        const imageUrl = 'data:image/png;base64,' + data.data;
+                        stream.src = imageUrl;
+                        hideMessages();
+                        
+                    } else if (data.type === 'error') {
+                        console.error('Stream error:', data.message);
+                        showError('Stream error: ' + data.message);
+                        
+                    } else if (data.type === 'status') {
+                        console.log('Status:', data.message);
+                        hideMessages();
+                    }
+                    
+                } catch (err) {
+                    console.error('Error parsing stream data:', err);
+                }
+            };
+            
+            eventSource.onerror = function(event) {
+                console.error('EventSource error:', event);
+                isConnected = false;
+                
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+                
+                // Auto-reconnect with backoff
+                reconnectAttempts++;
+                if (reconnectAttempts <= maxReconnectAttempts) {
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 10000);
+                    showError(`Connection lost. Reconnecting in ${Math.ceil(delay/1000)}s... (${reconnectAttempts}/${maxReconnectAttempts})`);
+                    
+                    setTimeout(() => {
+                        if (!isConnected) {
+                            console.log(`🔄 Reconnect attempt ${reconnectAttempts}`);
+                            connectLiveStream();
+                        }
+                    }, delay);
+                } else {
+                    // Fallback to screenshots after max attempts
+                    console.log('🔄 Falling back to screenshot mode');
+                    fallbackToScreenshots = true;
+                    startScreenshotFallback();
+                }
+            };
+        }
+        
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            if (screenshotInterval) {
+                clearInterval(screenshotInterval);
+                screenshotInterval = null;
+            }
+            if (readinessCheckInterval) {
+                clearInterval(readinessCheckInterval);
+                readinessCheckInterval = null;
+            }
+            isConnected = false;
+        }
+        
+        async function takeScreenshot() {
+            try {
+                const response = await fetch('/api/screenshot/{{ session_id }}?' + new Date().getTime());
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    
+                    stream.onload = () => {
+                        URL.revokeObjectURL(imageUrl);
+                        hideMessages();
+                    };
+                    
+                    stream.onerror = () => {
+                        URL.revokeObjectURL(imageUrl);
+                        showError('Image load failed');
+                    };
+                    
+                    stream.src = imageUrl;
+                    
+                } else {
+                    console.error('Screenshot failed:', response.status);
+                    showError('Screenshot mode failed');
+                }
+                
+            } catch (err) {
+                console.error('Screenshot error:', err);
+                showError('Connection error');
+            }
+        }
+        
+        function startScreenshotFallback() {
+            showError('Live stream unavailable. Using screenshots...');
+            
+            // Take first screenshot immediately
+            takeScreenshot();
+            
+            // Then set up interval for every 1 second
+            screenshotInterval = setInterval(takeScreenshot, 1000);
+            
+            // Clear error message after first successful screenshot
+            setTimeout(() => {
+                if (fallbackToScreenshots) {
+                    hideMessages();
+                }
+            }, 2000);
+        }
+        
+        // Event listeners
+        replayBtn.addEventListener('click', () => {
+            window.location.href = '/replay/{{ session_id }}';
+        });
+        
+        // Auto-start readiness check on page load
+        window.addEventListener('load', startReadinessCheck);
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', disconnect);
+        
+        // Handle visibility changes (pause when tab is hidden)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                disconnect();
+            } else if (!isConnected) {
+                reconnectAttempts = 0;
+                if (fallbackToScreenshots) {
+                    startScreenshotFallback();
+                } else {
+                    startReadinessCheck();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

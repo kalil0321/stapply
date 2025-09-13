@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Stream</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+        
+        #stream {
+            width: 100%;
+            height: 100vh;
+            object-fit: contain;
+            background: #000;
+            display: block;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            z-index: 100;
+        }
+        
+        .error {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4444;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <img id="stream" alt="Browser Stream" />
+    <div id="loading" class="loading">Browser is starting up...</div>
+    <div id="error" class="error">Connection failed</div>
+
+    <script>
+        let intervalId = null;
+        let isActive = true;
+        let readinessCheckInterval = null;
+        
+        const stream = document.getElementById('stream');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        
+        function showLoading(message = 'Browser is starting up...') {
+            loading.style.display = 'block';
+            loading.textContent = message;
+            error.style.display = 'none';
+        }
+        
+        function showError(message) {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.textContent = message || 'Connection failed';
+        }
+        
+        function hideMessages() {
+            loading.style.display = 'none';
+            error.style.display = 'none';
+        }
+        
+        async function checkBrowserReady() {
+            try {
+                const response = await fetch('/api/task-ready/{{ session_id }}');
+                const data = await response.json();
+                
+                if (data.ready) {
+                    // Browser is ready, stop checking and start screenshots
+                    if (readinessCheckInterval) {
+                        clearInterval(readinessCheckInterval);
+                        readinessCheckInterval = null;
+                    }
+                    showLoading('Connecting to browser...');
+                    startScreenshots();
+                    return true;
+                } else {
+                    // Browser not ready yet, show status
+                    showLoading(data.message || 'Browser is starting up...');
+                    return false;
+                }
+            } catch (err) {
+                console.error('Error checking browser readiness:', err);
+                showLoading('Checking browser status...');
+                return false;
+            }
+        }
+        
+        function startReadinessCheck() {
+            // Check immediately
+            checkBrowserReady();
+            
+            // Then check every 2 seconds until ready
+            readinessCheckInterval = setInterval(async () => {
+                const ready = await checkBrowserReady();
+                if (ready && readinessCheckInterval) {
+                    clearInterval(readinessCheckInterval);
+                    readinessCheckInterval = null;
+                }
+            }, 2000);
+        }
+        
+        async function takeScreenshot() {
+            if (!isActive) return;
+            
+            try {
+                const response = await fetch('/api/screenshot/{{ session_id }}?' + new Date().getTime());
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    
+                    stream.onload = () => {
+                        URL.revokeObjectURL(imageUrl);
+                        hideMessages();
+                    };
+                    
+                    stream.onerror = () => {
+                        URL.revokeObjectURL(imageUrl);
+                        showError('Image load failed');
+                    };
+                    
+                    stream.src = imageUrl;
+                    
+                } else {
+                    console.error('Screenshot failed:', response.status);
+                    showError('Screenshot failed');
+                }
+                
+            } catch (err) {
+                console.error('Screenshot error:', err);
+                showError('Connection error');
+            }
+        }
+        
+        function startScreenshots() {
+            if (intervalId) return;
+            
+            // Take first screenshot immediately
+            takeScreenshot();
+            
+            // Then set up interval for every 1 second
+            intervalId = setInterval(takeScreenshot, 1000);
+        }
+        
+        function stopScreenshots() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            if (readinessCheckInterval) {
+                clearInterval(readinessCheckInterval);
+                readinessCheckInterval = null;
+            }
+        }
+        
+        // Auto-start readiness check on page load
+        window.addEventListener('load', startReadinessCheck);
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', stopScreenshots);
+        
+        // Handle visibility changes (pause when tab is hidden)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                isActive = false;
+                stopScreenshots();
+            } else {
+                isActive = true;
+                startReadinessCheck();
+            }
+        });
+    </script>
+</body>
+</html>
