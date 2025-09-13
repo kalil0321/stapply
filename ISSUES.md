@@ -17,3 +17,5 @@ RuntimeError: {'code': -32001, 'message': 'Session with given id not found.'}
 ```
 - (CLOUD) Schema: structured output led to many pydantic errors
 - highlight elements doesnt work locally
+- inside iframes it doesnt always work
+- issues with select+dropdown --> use Playwright
