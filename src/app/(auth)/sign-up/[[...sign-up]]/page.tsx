@@ -74,7 +74,7 @@ export default function SignUpPage() {
             <Card className="w-full  min-w-100 rounded-4xl px-6 py-10 pt-8">
                 <CardContent>
                     <div className="flex flex-col items-center space-y-4">
-                        <Stapply className="text-4xl" />
+                        <Stapply className="text-4xl" showDocs />
 
                         <div className="space-y-2 text-center">
                             <h1 className="text-3xl font-semibold text-foreground">
@@ -83,13 +83,12 @@ export default function SignUpPage() {
                             <p className="text-muted-foreground text-sm">
                                 Already have an account?{" "}
                                 <a
-                                    href={`/sign-in${
-                                        redirectUrl !== "/"
+                                    href={`/sign-in${redirectUrl !== "/"
                                             ? `?redirect_url=${encodeURIComponent(
-                                                  redirectUrl
-                                              )}`
+                                                redirectUrl
+                                            )}`
                                             : ""
-                                    }`}
+                                        }`}
                                     className="text-foreground hover:underline"
                                 >
                                     Sign in

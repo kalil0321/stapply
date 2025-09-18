@@ -73,7 +73,7 @@ export default function SignInPage() {
             <Card className="w-full min-w-100 rounded-4xl px-6 py-10 pt-8">
                 <CardContent>
                     <div className="flex flex-col items-center space-y-4">
-                        <Stapply className="text-4xl" />
+                        <Stapply className="text-4xl" showDocs />
 
                         <div className="space-y-2 text-center">
                             <h1 className="text-3xl font-semibold text-foreground">
