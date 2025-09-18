@@ -168,24 +168,6 @@ export default function SignInPage() {
                                 Continue with GitHub
                             </Button> */}
                         </form>
-
-                        <p className="text-center text-xs w-11/12 text-muted-foreground">
-                            You acknowledge that you read, and agree, to our{" "}
-                            <a
-                                href="/tos"
-                                className="underline hover:text-foreground"
-                            >
-                                Terms of Service
-                            </a>{" "}
-                            and our{" "}
-                            <a
-                                href="/privacy"
-                                className="underline hover:text-foreground"
-                            >
-                                Privacy Policy
-                            </a>
-                            .
-                        </p>
                     </div>
                 </CardContent>
             </Card>
