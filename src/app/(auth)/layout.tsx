@@ -1,8 +1,8 @@
 import { type Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Auth - Job Search Assistant",
-    description: "Authenticate to Job Search Assistant",
+    title: "Auth - Stapply",
+    description: "Authenticate to Stapply",
 };
 
 export default async function AuthLayout({

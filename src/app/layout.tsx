@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Job Search Assistant",
-    description: "Job Search Assistant",
+    title: "Stapply",
+    description: "Stapply, an AI job search engine that goes beyond search",
+    keywords: ["job", "job search", "ai job search", "ai job search engine", "ai job search platform", "ai job search tool", "ai job search software", "ai job search service", "ai job search application", "ai job search website", "ai job search app", "ai job search tool", "ai job search software", "ai job search service", "ai job search application", "ai job search website", "ai job search app"],
 };
 
 export default async function RootLayout({
