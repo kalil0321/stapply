@@ -47,7 +47,7 @@ In a new terminal, start the frontend:
 ```bash
 npm install
 npm run dev
-The app will be available at http://localhost:3000.
 ```
+The app will be available at http://localhost:3000.
 
 Ready to hunt!
