@@ -85,7 +85,7 @@ export default function SignInPage() {
                                     href={`/sign-up${redirectUrl !== "/" ? `?redirect_url=${encodeURIComponent(redirectUrl)}` : ""}`}
                                     className="text-foreground hover:underline"
                                 >
-                                    Sign up for free
+                                    Sign up
                                 </a>
                             </p>
                         </div>
