@@ -11,14 +11,7 @@ export const auth = betterAuth({
         async sendResetPassword(data, request) {},
         requireEmailVerification: false,
     },
-    trustedOrigins: ["http://localhost:3000", "http://localhost:3001"],
-    // advanced: {
-    //     defaultCookieAttributes: {
-    //         sameSite: "none",
-    //         secure: true,
-    //         partitioned: true, // New browser standards will mandate this for foreign cookies
-    //     },
-    // },
+    trustedOrigins: ["http://localhost:3000"],
     socialProviders: {
         github: {
             clientId: process.env.GITHUB_CLIENT_ID as string,
