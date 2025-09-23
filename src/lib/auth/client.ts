@@ -1,8 +1,8 @@
 import { createAuthClient } from "better-auth/react";
-import { adminClient } from "better-auth/client/plugins";
+import { lastLoginMethod } from "better-auth/plugins"
 
 export const authClient = createAuthClient({
-    plugins: [adminClient()],
+    plugins: [lastLoginMethod()],
 });
 
 export const { signIn, signOut, signUp, useSession } = authClient;
