@@ -19,12 +19,7 @@ You can also search for live jobs using Browser Use, which finds fresh listings 
 
 The job application part is fully powered by an AI agent. It autofills forms, attaches your résumé, and guides you through extra steps. Currently, file upload support is not fully reliable, but I believe this will improve soon. There is the cloud and local versions. For the cloud you need to have a BROWSER_USE_API_KEY. For the local version, you just need to run the server that handles the browser locally.
 
----
-
-## 🐛 Issues & TODOs
-
-Current issues and bugs are listed in **ISSUES.md**.  
-Since this was a hackathon project, it is not production ready yet. I plan to improve the project and deploy it.
+The local server handles the browser-use task and resume upload. The browser is streamcasted into an iframe in the webapp.
 
 ---
 
