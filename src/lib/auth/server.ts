@@ -56,7 +56,7 @@ export const auth = betterAuth({
                 console.error("sendResetPassword: failed to send email", error);
             }
         },
-        requireEmailVerification: false,
+        requireEmailVerification: true,
     },
     trustedOrigins: ["http://localhost:3000"],
     socialProviders: {
