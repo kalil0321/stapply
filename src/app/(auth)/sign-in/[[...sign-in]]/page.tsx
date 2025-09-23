@@ -15,6 +15,8 @@ export default function SignInPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    const lastMethod = authClient.getLastUsedLoginMethod()
+
     const searchParams = useSearchParams();
     const redirectUrl = searchParams.get("redirect_url") || "/";
 
@@ -155,6 +157,11 @@ export default function SignInPage() {
                             >
                                 <GOOGLE className="w-4 h-4 mr-2" />
                                 Continue with Google
+                                {lastMethod === "google" && (
+                                    <span className="text-xs text-muted-foreground">
+                                        Last used
+                                    </span>
+                                )}
                             </Button>
                             {/* <Button
                                 variant="outline"
@@ -166,6 +173,11 @@ export default function SignInPage() {
                             >
                                 <GITHUB className="w-4 h-4 mr-2" />
                                 Continue with GitHub
+                                {lastMethod === "github" && (
+                                    <span className="text-xs text-muted-foreground">
+                                        Last used
+                                    </span>
+                                )}
                             </Button> */}
                         </form>
 
