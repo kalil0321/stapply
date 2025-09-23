@@ -1,15 +1,60 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db/drizzle";
 import { users, sessions, accounts, verifications, apikeys } from "@/db/schema";
-import { anonymous, admin } from "better-auth/plugins";
-import { nextCookies } from "better-auth/next-js";
+
+const RESEND_API_ENDPOINT = "https://api.resend.com/emails";
+const DEFAULT_FROM_ADDRESS = "Kalil from Stapply <stapply@kalil0321.com>";
 
 export const auth = betterAuth({
     emailAndPassword: {
         enabled: true,
-        async sendResetPassword(data, request) {
-            // TODO: Implement reset password
+        async sendResetPassword({ user, url }) {
+            const recipient = user.email;
+
+            if (!recipient) {
+                console.warn("sendResetPassword: missing user email", user.id);
+                return;
+            }
+
+            const apiKey = process.env.RESEND_API_KEY;
+            if (!apiKey) {
+                console.error("sendResetPassword: RESEND_API_KEY not configured");
+                return;
+            }
+
+            const fromAddress = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_ADDRESS;
+            const subject = "Reset your Stapply password";
+            const greeting = user.name ? ` ${user.name}` : "";
+            const htmlBody = `<p>Hello${greeting},</p><p>We received a request to reset your Stapply password.</p><p><a href="${url}">Click here to reset your password</a>. This link will expire soon.</p><p>If you did not request this change, you can safely ignore this email.</p>`;
+
+            try {
+                const response = await fetch(RESEND_API_ENDPOINT, {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${apiKey}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        from: fromAddress,
+                        to: recipient,
+                        subject,
+                        html: htmlBody,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error(
+                        "sendResetPassword: failed to send email",
+                        response.status,
+                        errorBody
+                    );
+                }
+            } catch (error) {
+                console.error("sendResetPassword: failed to send email", error);
+            }
         },
         requireEmailVerification: false,
     },
