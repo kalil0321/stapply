@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { db } from "@/db/drizzle"; // your drizzle instance
+import { db } from "@/db/drizzle";
 import { users, sessions, accounts, verifications, apikeys } from "@/db/schema";
 import { anonymous, admin } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
@@ -8,7 +8,9 @@ import { nextCookies } from "better-auth/next-js";
 export const auth = betterAuth({
     emailAndPassword: {
         enabled: true,
-        async sendResetPassword(data, request) {},
+        async sendResetPassword(data, request) {
+            // TODO: Implement reset password
+        },
         requireEmailVerification: false,
     },
     trustedOrigins: ["http://localhost:3000"],
@@ -55,16 +57,6 @@ export const auth = betterAuth({
         //         session,
         //     };
         // }),
-        anonymous({
-            onLinkAccount: async ({ anonymousUser, newUser }) => {
-                console.log(
-                    "onLinkAccount",
-                    JSON.stringify(anonymousUser),
-                    JSON.stringify(newUser)
-                );
-            },
-        }),
-        admin(),
         nextCookies(),
     ],
 });
