@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/helpers";
-import Exa from "exa-js";
 import { db } from "@/db/drizzle";
-import { searches, searchResults, jobs } from "@/db/schema";
+import { searches } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { getSearchPayload } from "@/lib/search-events";
 
 export async function GET(
     req: NextRequest,
@@ -24,57 +24,20 @@ export async function GET(
     }
 
     try {
-        // Fetch the search record from the database using the text ID
-        const [searchRecord] = await db
-            .select()
-            .from(searches)
-            .where(eq(searches.id, id));
+        const payload = await getSearchPayload(id);
 
-        if (!searchRecord) {
+        if (!payload) {
             return NextResponse.json(
                 { error: "Search not found" },
                 { status: 404 }
             );
         }
 
-        // Check if the user owns this search
-        if (searchRecord.userId !== userId) {
+        if (payload.record.userId !== userId) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        // Fetch search results from database
-        const searchResultsWithJobs = await db
-            .select({
-                id: searchResults.id,
-                similarityScore: searchResults.similarityScore,
-                source: searchResults.source,
-                status: searchResults.status,
-                reason: searchResults.reason,
-                createdAt: searchResults.createdAt,
-                job: {
-                    id: jobs.id,
-                    link: jobs.link,
-                    title: jobs.title,
-                    location: jobs.location,
-                    company: jobs.company,
-                    // description: jobs.description,
-                    // employment_type: jobs.employment_type,
-                    // industry: jobs.industry,
-                    // posted_at: jobs.posted_at,
-                    // created_at: jobs.created_at,
-                },
-            })
-            .from(searchResults)
-            .innerJoin(jobs, eq(searchResults.jobId, jobs.id))
-            .where(eq(searchResults.searchId, id));
-
-        return NextResponse.json({
-            metadata: searchRecord.metadata,
-            status: searchRecord.status,
-            valid: searchRecord.valid,
-            results: searchResultsWithJobs,
-            totalResults: searchResultsWithJobs.length,
-        });
+        return NextResponse.json(payload.response);
     } catch (error) {
         console.error("Error fetching search:", error);
         return NextResponse.json(

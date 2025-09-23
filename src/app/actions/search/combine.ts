@@ -4,6 +4,7 @@ import { Job, SearchPrivateMetadata } from "@/lib/types";
 import { db } from "@/db/drizzle";
 import { searchResults } from "@/db/schema";
 import { validateJobBatch } from "@/app/actions/search/validation";
+import { emitSearchUpdate } from "@/lib/search-events";
 
 interface VectorJob {
     id: string;
@@ -91,6 +92,8 @@ export async function combineResults(
                     });
                 }
 
+                await emitSearchUpdate(searchId);
+
                 try {
                     const { validJobs } = await validateJobBatch(
                         searchId,
@@ -102,11 +105,14 @@ export async function combineResults(
                     );
                     numValidJobs += validJobs;
 
+                    await emitSearchUpdate(searchId);
+
                     // TODO: improve this formula later (don't focus on this)
                     i += batch.length;
                     batchSize = Math.min(RESULTS_LIMIT - numValidJobs, 20);
                 } catch (error) {
                     console.error("Failed to validate jobs:", error);
+                    await emitSearchUpdate(searchId);
                     break;
                 }
             }
