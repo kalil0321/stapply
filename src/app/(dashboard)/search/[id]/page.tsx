@@ -3,7 +3,6 @@
 import { ChatInput } from "@/components/chat-input";
 import { motion } from "framer-motion";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "next/navigation";
 import { SearchMetadata, SearchResult, SearchStatus } from "@/lib/types";
 import {
@@ -42,19 +41,43 @@ export default function QueryPage() {
     );
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isPolling, setIsPolling] = useState(false);
+    const [isLiveUpdating, setIsLiveUpdating] = useState(false);
 
     const searchParams = useSearchParams();
     const { id } = useParams();
-    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const searchId = Array.isArray(id) ? id[0] : id;
+    const eventSourceRef = useRef<EventSource | null>(null);
+    const fallbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Always get query from URL for immediate display
     const queryText = searchParams.get("q") || "Search query";
 
-    // Fetch search data from API
+    const applySearchData = useCallback(
+        (data: SearchResponse) => {
+            setSearchResponse(data);
+            setError(null);
+            if (searchId) {
+                setSearchRecord({
+                    id: searchId,
+                    userId: "",
+                    query: queryText,
+                    metadata: data.metadata,
+                    websetId: null,
+                    status: data.status,
+                    valid: data.valid,
+                    createdAt: new Date().toISOString(),
+                });
+            }
+        },
+        [searchId, queryText]
+    );
+
     const fetchSearchData = useCallback(async () => {
-        if (!id) return null;
-        const response = await fetch(`/api/searches/${id}`);
+        if (!searchId) return null;
+        const response = await fetch(`/api/searches/${searchId}`, {
+            cache: "no-store",
+        });
+
         if (!response.ok) {
             if (response.status === 404) {
                 throw new Error("Search not found");
@@ -67,100 +90,148 @@ export default function QueryPage() {
 
         const data: SearchResponse = await response.json();
         return data;
-    }, [id]);
-
-    const {
-        data: queryData,
-        refetch,
-        isFetching,
-        error: queryError,
-    } = useQuery({
-        queryKey: ["search", id],
-        queryFn: fetchSearchData,
-        enabled: false,
-    });
+    }, [searchId]);
 
     useEffect(() => {
-        if (queryData) {
-            setSearchResponse(queryData);
-            setSearchRecord({
-                id: id as string,
-                userId: "",
-                query: queryText,
-                metadata: queryData.metadata,
-                websetId: null,
-                status: queryData.status,
-                valid: queryData.valid,
-                createdAt: new Date().toISOString(),
-            });
-            if (queryData.status === "done" || !queryData.valid) {
-                setIsPolling(false);
-            }
-        }
-        if (queryError instanceof Error) {
-            setError(queryError.message);
-            setIsPolling(false);
-        }
-    }, [queryData, queryError, queryText, id]);
+        let isMounted = true;
 
-    // Start polling
-    const startPolling = useCallback(() => {
-        if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-        }
-
-        setIsPolling(true);
-        pollingIntervalRef.current = setInterval(async () => {
-            const { data } = await refetch();
-            if (data && (data.status === "done" || !data.valid)) {
-                setIsPolling(false);
-            }
-            //TODO: adjust the polling interval based on the number of results
-        }, 1000); // Poll every 1 second
-    }, [refetch]);
-
-    // Stop polling
-    const stopPolling = useCallback(() => {
-        if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-        }
-        setIsPolling(false);
-    }, []);
-
-    // Initial fetch and setup polling
-    useEffect(() => {
-        const initialFetch = async () => {
+        const loadInitialData = async () => {
+            if (!searchId) return;
             setLoading(true);
             setError(null);
 
-            const { data } = await refetch();
-
-            // Start polling if search is still in progress
-            if (data && data.status !== "done" && data.valid) {
-                startPolling();
+            try {
+                const data = await fetchSearchData();
+                if (isMounted && data) {
+                    applySearchData(data);
+                }
+            } catch (fetchError) {
+                if (!isMounted) return;
+                if (fetchError instanceof Error) {
+                    setError(fetchError.message);
+                } else {
+                    setError("Failed to load search data");
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
-
-            setLoading(false);
         };
 
-        initialFetch();
+        loadInitialData();
 
-        // Cleanup polling on unmount
         return () => {
-            stopPolling();
+            isMounted = false;
         };
-    }, [id, refetch, startPolling, stopPolling]);
+    }, [searchId, fetchSearchData, applySearchData]);
 
-    // Stop polling when component unmounts or when search is complete
-    useEffect(() => {
-        if (
-            searchResponse?.status === "done" ||
-            (searchResponse && !searchResponse.valid)
-        ) {
-            stopPolling();
+    const stopFallbackPolling = useCallback(() => {
+        if (fallbackIntervalRef.current) {
+            clearInterval(fallbackIntervalRef.current);
+            fallbackIntervalRef.current = null;
         }
-    }, [searchResponse?.status, searchResponse?.valid, stopPolling]);
+    }, []);
+
+    const startFallbackPolling = useCallback(() => {
+        if (fallbackIntervalRef.current) {
+            return;
+        }
+
+        setIsLiveUpdating(true);
+        fallbackIntervalRef.current = setInterval(async () => {
+            try {
+                const data = await fetchSearchData();
+                if (data) {
+                    applySearchData(data);
+                    if (data.status === "done" || data.valid === false) {
+                        stopFallbackPolling();
+                        setIsLiveUpdating(false);
+                    }
+                }
+            } catch (pollError) {
+                console.error("Fallback polling failed", pollError);
+            }
+        }, 2000);
+    }, [applySearchData, fetchSearchData, stopFallbackPolling]);
+
+    useEffect(() => {
+        if (!searchId) {
+            return;
+        }
+
+        if (typeof window === "undefined" || !("EventSource" in window)) {
+            startFallbackPolling();
+            return () => {
+                stopFallbackPolling();
+                setIsLiveUpdating(false);
+            };
+        }
+
+        let isActive = true;
+        const source = new EventSource(`/api/searches/${searchId}/events`);
+        eventSourceRef.current = source;
+
+        source.onopen = () => {
+            if (!isActive) return;
+            setIsLiveUpdating(true);
+            stopFallbackPolling();
+        };
+
+        source.onmessage = (event) => {
+            if (!isActive) return;
+
+            try {
+                const data: SearchResponse = JSON.parse(event.data);
+                applySearchData(data);
+                setLoading(false);
+
+                if (data.status === "done" || data.valid === false) {
+                    setIsLiveUpdating(false);
+                    stopFallbackPolling();
+                    source.close();
+                    eventSourceRef.current = null;
+                }
+            } catch (parseError) {
+                console.error("Failed to parse search event payload", parseError);
+            }
+        };
+
+        source.onerror = () => {
+            if (!isActive) return;
+
+            source.close();
+            eventSourceRef.current = null;
+            setIsLiveUpdating(false);
+            fetchSearchData()
+                .then((data) => {
+                    if (data) {
+                        applySearchData(data);
+                    }
+                })
+                .catch((pollError) => {
+                    console.error(
+                        "Failed to fetch search data after SSE error",
+                        pollError
+                    );
+                });
+            startFallbackPolling();
+        };
+
+        return () => {
+            isActive = false;
+            source.close();
+            eventSourceRef.current = null;
+            setIsLiveUpdating(false);
+            stopFallbackPolling();
+        };
+    }, [
+        searchId,
+        applySearchData,
+        fetchSearchData,
+        startFallbackPolling,
+        stopFallbackPolling,
+    ]);
 
     const handleSend = async () => {
         if (!inputValue.trim()) return;
@@ -225,7 +296,7 @@ export default function QueryPage() {
                 loading={loading || isSearchProcessing()}
                 status={searchResponse?.status}
                 valid={searchResponse?.valid}
-                isPolling={isPolling}
+                isPolling={isLiveUpdating}
             />
 
             {/* Content - Changes based on state */}

@@ -8,6 +8,7 @@ import { sqlSearch } from "@/app/actions/search/sql";
 import { vectorSearch } from "@/app/actions/search/vector";
 import { combineResults } from "@/app/actions/search/combine";
 import { auth } from "@/lib/auth/helpers";
+import { emitSearchUpdate } from "@/lib/search-events";
 
 export async function POST(req: NextRequest) {
     const { userId } = await auth();
@@ -39,6 +40,8 @@ export async function POST(req: NextRequest) {
                 .set({ status: "validating" })
                 .where(eq(searches.id, searchRecord.id));
 
+            await emitSearchUpdate(searchRecord.id);
+
             // Validate query
             const object = (await validateQuery(
                 searchRecord.id,
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest) {
                     .update(searches)
                     .set({ status: "done", valid: false, privateMetadata })
                     .where(eq(searches.id, searchRecord.id));
+                await emitSearchUpdate(searchRecord.id);
                 return;
             }
 
@@ -63,6 +67,7 @@ export async function POST(req: NextRequest) {
                     .update(searches)
                     .set({ status: "done", valid: false, privateMetadata })
                     .where(eq(searches.id, searchRecord.id));
+                await emitSearchUpdate(searchRecord.id);
                 return;
             }
 
@@ -74,6 +79,8 @@ export async function POST(req: NextRequest) {
                     status: "query",
                 })
                 .where(eq(searches.id, searchRecord.id));
+
+            await emitSearchUpdate(searchRecord.id);
 
             const enhancedQuery =
                 query +
@@ -109,6 +116,7 @@ export async function POST(req: NextRequest) {
                         .update(searches)
                         .set({ status: "done", privateMetadata })
                         .where(eq(searches.id, searchRecord.id));
+                    await emitSearchUpdate(searchRecord.id);
                     return;
                 }
 
@@ -121,6 +129,8 @@ export async function POST(req: NextRequest) {
                         sqlQuery: sqlData.query,
                     })
                     .where(eq(searches.id, searchRecord.id));
+
+                await emitSearchUpdate(searchRecord.id);
 
                 // Combine and rank results
                 const combineData = await combineResults(
@@ -137,6 +147,7 @@ export async function POST(req: NextRequest) {
                         .update(searches)
                         .set({ status: "done", privateMetadata })
                         .where(eq(searches.id, searchRecord.id));
+                    await emitSearchUpdate(searchRecord.id);
                     return;
                 }
 
@@ -155,17 +166,22 @@ export async function POST(req: NextRequest) {
                     })
                     .where(eq(searches.id, searchRecord.id));
 
+                await emitSearchUpdate(searchRecord.id);
+
                 // Update status to done
                 await db
                     .update(searches)
                     .set({ status: "done" })
                     .where(eq(searches.id, searchRecord.id));
+
+                await emitSearchUpdate(searchRecord.id);
             } catch (searchError) {
                 console.error("Error in custom search:", searchError);
                 await db
                     .update(searches)
                     .set({ status: "done" })
                     .where(eq(searches.id, searchRecord.id));
+                await emitSearchUpdate(searchRecord.id);
             }
         });
 
