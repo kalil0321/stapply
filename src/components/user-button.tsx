@@ -111,11 +111,11 @@ export function UserButton({
                 {variant === "sidebar" ? (
                     <SidebarMenuButton
                         size="lg"
-                        className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                        className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground dark:text-white"
                     >
                         <Avatar className="h-8 w-8 rounded-lg">
                             <AvatarImage src={avatar} alt={name} />
-                            <AvatarFallback className="rounded-lg bg-muted border border-border text-black">
+                            <AvatarFallback className="rounded-lg bg-muted border border-border text-black dark:text-white">
                                 {name
                                     .split(" ")
                                     .map((n) => n[0])
@@ -132,10 +132,10 @@ export function UserButton({
                         </div>
                     </SidebarMenuButton>
                 ) : (
-                    <button className="rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                    <button className="rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dark:text-white ">
                         <Avatar className="h-6 w-6 rounded-lg">
                             <AvatarImage src={avatar} alt={name} />
-                            <AvatarFallback className="rounded-lg bg-muted border border-border text-black">
+                            <AvatarFallback className="rounded-lg bg-muted border border-border text-black dark:text-white">
                                 {name
                                     .split(" ")
                                     .map((n) => n[0])
