@@ -57,7 +57,56 @@ export const auth = betterAuth({
                 console.error("sendResetPassword: failed to send email", error);
             }
         },
+        async sendVerificationEmail({ user, url }) {
+            const recipient = user.email;
+
+            if (!recipient) {
+                console.warn("sendVerificationEmail: missing user email", user.id);
+                return;
+            }
+
+            const apiKey = process.env.RESEND_API_KEY;
+            if (!apiKey) {
+                console.error("sendVerificationEmail: RESEND_API_KEY not configured");
+                return;
+            }
+
+            const fromAddress = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_ADDRESS;
+            const subject = "Verify your Stapply email address";
+            const greeting = user.name ? ` ${user.name}` : "";
+            const htmlBody = `<p>Hello${greeting},</p><p>Welcome to Stapply! Please verify your email address to complete your registration.</p><p><a href="${url}">Click here to verify your email</a>. This link will expire soon.</p><p>If you did not create an account with Stapply, you can safely ignore this email.</p>`;
+
+            try {
+                const response = await fetch(RESEND_API_ENDPOINT, {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${apiKey}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        from: fromAddress,
+                        to: recipient,
+                        subject,
+                        html: htmlBody,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error(
+                        "sendVerificationEmail: failed to send email",
+                        response.status,
+                        errorBody
+                    );
+                }
+            } catch (error) {
+                console.error("sendVerificationEmail: failed to send email", error);
+            }
+        },
         requireEmailVerification: true,
+        // Allow existing users to sign in even if they haven't verified their email
+        // They will be redirected to verify their email after sign in
+        disableSignInWithUnverifiedEmail: false,
     },
     trustedOrigins: ["http://localhost:3000"],
     socialProviders: {
