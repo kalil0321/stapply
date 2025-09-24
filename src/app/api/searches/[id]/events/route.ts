@@ -57,7 +57,7 @@ export async function GET(
 
             const handler = (data: SearchStreamPayload) => {
                 send(data);
-                if (data.status === "done" || data.valid === false) {
+                if (data.status === "done" || !data.valid) {
                     cleanup();
                 }
             };
