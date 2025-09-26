@@ -1,5 +1,5 @@
 import { type Metadata } from "next";
-import { FlickeringGrid } from "@/components/ui/shadcn-io/flickering-grid/index";
+import { FlickeringGrid } from "@/components/background/flickering-grid";
 
 export const metadata: Metadata = {
     title: "Auth - Stapply",
