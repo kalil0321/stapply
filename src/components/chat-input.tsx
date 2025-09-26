@@ -149,7 +149,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     return (
         <div className={cn("w-full max-w-2xl mx-auto", className)}>
             {/* Live Search Toggle */}
-            {showLiveSearch && (
+            {/* {showLiveSearch && (
                 <div className="flex items-center justify-between mb-3 p-2 rounded-lg bg-muted/30 border border-border/50">
                     <div className="flex items-center gap-2">
                         <Button
@@ -191,7 +191,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                         </div>
                     )}
                 </div>
-            )}
+            )} */}
             
             <div className="flex items-center gap-2 bg-background border border-border rounded-xl px-4 py-3 shadow-sm transition-all duration-200">
                 <textarea
