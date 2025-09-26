@@ -1,5 +1,6 @@
 # 🚀 Stapply – AI Job Search Engine
 
+[Demo video](https://drive.google.com/file/d/1xxb7QsQi35GL3bK3BJhIsxCJNash39K5/view?usp=sharing)
 ---
 
 Stapply is an **AI-powered job search engine**.  
