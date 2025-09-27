@@ -81,43 +81,74 @@ export async function GET(
         let isSuccess = null;
         let status = null;
 
-        try {
-            const apiKey = process.env.BROWSER_USE_API_KEY;
-            if (!apiKey) {
-                throw new Error("BROWSER_USE_API_KEY not configured");
-            }
-            
-            const browser = new BrowserUseClient({
-                apiKey: apiKey,
-            });
+        // Check if this is a server application (stapply)
+        const isServerApplication = application.taskId?.startsWith("stapply-");
 
-            const task = await browser.tasks.getTask(application.taskId);
-            console.log("BrowserUse task:", JSON.stringify(task, null, 2));
-            
-            if (task && task.sessionId) {
-                const session = await browser.sessions.getSession(task.sessionId);
-                url = session?.liveUrl || session?.publicShareUrl || null;
-                if (!url) {
-                    try {
-                        if (task.sessionId) {
-                            const shareView = await browser.sessions.createSessionPublicShare(task.sessionId);
-                            url = shareView?.shareUrl || null;
+        if (isServerApplication) {
+            // Handle server applications - check status via local server API
+            try {
+                const serverResponse = await fetch(`http://localhost:3001/task-status/${application.taskId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (serverResponse.ok) {
+                    const serverData = await serverResponse.json();
+                    status = serverData.status || null;
+                    isSuccess = serverData.isSuccess ?? null;
+                    output = serverData.output || null;
+                    console.log("Server application status:", JSON.stringify(serverData, null, 2));
+                } else {
+                    console.warn("Failed to get server application status:", serverResponse.status);
+                    status = "unknown";
+                }
+            } catch (serverError) {
+                console.error("Server API error:", serverError);
+                status = "unknown";
+                // Don't fail the entire request if server API fails
+            }
+        } else {
+            // Handle browser/cloud applications via BrowserUse
+            try {
+                const apiKey = process.env.BROWSER_USE_API_KEY;
+                if (!apiKey) {
+                    throw new Error("BROWSER_USE_API_KEY not configured");
+                }
+                
+                const browser = new BrowserUseClient({
+                    apiKey: apiKey,
+                });
+
+                const task = await browser.tasks.getTask(application.taskId);
+                console.log("BrowserUse task:", JSON.stringify(task, null, 2));
+                
+                if (task && task.sessionId) {
+                    const session = await browser.sessions.getSession(task.sessionId);
+                    url = session?.liveUrl || session?.publicShareUrl || null;
+                    if (!url) {
+                        try {
+                            if (task.sessionId) {
+                                const shareView = await browser.sessions.createSessionPublicShare(task.sessionId);
+                                url = shareView?.shareUrl || null;
+                            }
+                        } catch (shareError) {
+                            console.warn("Failed to create public share:", shareError);
                         }
-                    } catch (shareError) {
-                        console.warn("Failed to create public share:", shareError);
                     }
                 }
+                
+                output = task?.output || null;
+                isSuccess = task?.isSuccess ?? null;
+                status = task?.status || null;
+                
+                console.log("BrowserUse liveUrl:", JSON.stringify(url, null, 2));
+            } catch (browserError) {
+                console.error("BrowserUse API error:", browserError);
+                // Don't fail the entire request if BrowserUse API fails
+                // Just return the application data without browser session info
             }
-            
-            output = task?.output || null;
-            isSuccess = task?.isSuccess ?? null;
-            status = task?.status || null;
-            
-            console.log("BrowserUse liveUrl:", JSON.stringify(url, null, 2));
-        } catch (browserError) {
-            console.error("BrowserUse API error:", browserError);
-            // Don't fail the entire request if BrowserUse API fails
-            // Just return the application data without browser session info
         }
 
         return NextResponse.json({ 
