@@ -25,7 +25,7 @@ interface JobResultsListProps {
 }
 
 export function JobResultsList({ searchResults }: JobResultsListProps) {
-    const { saveJob, isJobSaved, isLoading, fetchSavedJobs } = useSavedJobs();
+    const { saveJob, isJobSaved, isLoading } = useSavedJobs();
     const [currentPage, setCurrentPage] = useState(1);
     const [statusFilter, setStatusFilter] = useState<
         "all" | "valid" | "pending" | "invalid" | "partial"
@@ -71,11 +71,6 @@ export function JobResultsList({ searchResults }: JobResultsListProps) {
     useEffect(() => {
         setCurrentPage(1);
     }, [searchResults, statusFilter]);
-
-    useEffect(() => {
-        fetchSavedJobs();
-        console.log(JSON.stringify(searchResults, null, 2));
-    }, [fetchSavedJobs]);
 
     if (!searchResults || searchResults.length === 0) return null;
 

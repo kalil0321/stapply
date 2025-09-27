@@ -148,9 +148,10 @@ export function useSavedJobs() {
     }, []);
 
     const {
-        data: savedJobs,
+        data: savedJobs = [],
         refetch: refetchSavedJobs,
         isFetching: fetchingSavedJobs,
+        isLoading: isSavedJobsLoading,
     } = useQuery({
         queryKey: ["savedJobs"],
         queryFn: fetchSavedJobsQuery,
@@ -160,7 +161,7 @@ export function useSavedJobs() {
     useEffect(() => {
         if (savedJobs) {
             const jobIds = new Set<string>(
-                savedJobs?.map((saved: any) => saved.jobId as string) || []
+                savedJobs.map((saved: any) => saved.jobId as string) || []
             );
             setSavedJobIds(jobIds);
         }
@@ -219,7 +220,11 @@ export function useSavedJobs() {
         removeJob,
         isJobSaved,
         isLoading,
+        savedJobs,
+        isSavedJobsLoading,
+        isFetchingSavedJobs: fetchingSavedJobs,
         fetchSavedJobs,
+        refetchSavedJobs,
         addExternalJobs,
         isAddingExternal,
         savedJobIds,

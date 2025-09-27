@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,7 @@ export default function HistoryPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     const fetchHistory = async () => {
         const response = await fetch("/api/searches");
@@ -128,8 +129,10 @@ export default function HistoryPage() {
             }
             return true;
         },
-        onSuccess: () => {
+        onSuccess: async () => {
             setSearchHistory([]);
+            await queryClient.invalidateQueries({ queryKey: ["searchHistory"] });
+            await queryClient.invalidateQueries({ queryKey: ["recentSearches"] });
         },
         onError: () => {
             setError("Failed to clear search history");

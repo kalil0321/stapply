@@ -17,36 +17,28 @@ import {
     RocketIcon,
 } from "lucide-react";
 import { useSavedJobs } from "@/hooks/use-saved-jobs";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SavedJob } from "@/lib/types";
 import Link from "next/link";
 import { ApplicationSheet } from "@/components/application-sheet";
 import { AddExternalJobDialog } from "@/components/add-external-job-dialog";
 
 export default function SavedJobsPage() {
-    const { fetchSavedJobs, removeJob, isLoading } = useSavedJobs();
-    const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
-    const [loading, setLoading] = useState(true);
+    const {
+        savedJobs,
+        isSavedJobsLoading,
+        isFetchingSavedJobs,
+        removeJob,
+        isLoading,
+        fetchSavedJobs,
+    } = useSavedJobs();
     const [showApplicationSheet, setShowApplicationSheet] = useState(false);
     const [selectedJob, setSelectedJob] = useState<SavedJob | null>(null);
     const [showAddJobDialog, setShowAddJobDialog] = useState(false);
     const [isLocal, setIsLocal] = useState(false);
 
-    useEffect(() => {
-        const loadSavedJobs = async () => {
-            setLoading(true);
-            const jobs = await fetchSavedJobs();
-            setSavedJobs(jobs || []);
-            setLoading(false);
-        };
-        loadSavedJobs();
-    }, [fetchSavedJobs]);
-
     const handleRemoveJob = async (savedJobId: string, jobId: string) => {
-        const success = await removeJob(savedJobId, jobId);
-        if (success) {
-            setSavedJobs((prev) => prev.filter((job) => job.id !== savedJobId));
-        }
+        await removeJob(savedJobId, jobId);
     };
 
     const handleApplyClick = (savedJob: SavedJob, isLocal: boolean) => {
@@ -56,21 +48,23 @@ export default function SavedJobsPage() {
     };
 
     const handleJobAdded = async () => {
-        // Refresh the saved jobs list
-        const jobs = await fetchSavedJobs();
-        setSavedJobs(jobs || []);
+        await fetchSavedJobs();
     };
 
+    const savedJobsList = savedJobs ?? [];
     const stats = {
-        total: savedJobs.length,
-        thisWeek: savedJobs.filter(
+        total: savedJobsList.length,
+        thisWeek: savedJobsList.filter(
             (job) =>
                 new Date(job.createdAt) >
                 new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
         ).length,
     };
 
-    if (loading) {
+    const isInitialLoading =
+        isSavedJobsLoading && savedJobsList.length === 0;
+
+    if (isInitialLoading) {
         return (
             <div className="flex flex-col gap-8 p-6">
                 {/* Header Skeleton */}
@@ -170,7 +164,7 @@ export default function SavedJobsPage() {
             </div>
 
             {/* Empty State */}
-            {savedJobs.length === 0 && (
+            {savedJobsList.length === 0 && !isFetchingSavedJobs && (
                 <div className="text-center py-12">
                     <BookmarkIcon className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
                     <h3 className="text-lg font-medium mb-2">
@@ -199,10 +193,10 @@ export default function SavedJobsPage() {
             )}
 
             {/* Saved Jobs List */}
-            {savedJobs.length > 0 && (
+            {savedJobsList.length > 0 && (
                 <div className="space-y-4">
                     <div className="space-y-3">
-                        {savedJobs.map((savedJob) => (
+                        {savedJobsList.map((savedJob) => (
                             <Card
                                 key={savedJob.id}
                                 className="group hover:shadow-sm transition-shadow w-full"
@@ -297,9 +291,9 @@ export default function SavedJobsPage() {
                                                     className=""
                                                 >
                                                     <Button
-                                                    onClick={() =>
-                                                        handleApplyClick(savedJob, true)
-                                                    }
+                                                        onClick={() =>
+                                                            handleApplyClick(savedJob, true)
+                                                        }
                                                         className="flex items-center gap-1"
                                                     >
                                                         <RocketIcon className="w-4 h-4" />
