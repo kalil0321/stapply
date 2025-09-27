@@ -23,6 +23,71 @@ const JobDataSchema = z.object({
     description: z.string().optional(),
 });
 
+/*
+
+
+
+*/
+
+// Note that linkedin job links cannot be extracted with firecrawl unfortunately.
+
+async function extractJobData(jobLink: string) {
+    const url = 'https://api.firecrawl.dev/v2/scrape';
+    const options = {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            "onlyMainContent": true,
+            "maxAge": 172800000,
+            "url": jobLink,
+            "parsers": [
+                "pdf"
+            ],
+            "formats": [
+                "markdown",
+                {
+                    "type": "json",
+                    "schema": {
+                        "type": "object",
+                        "required": [
+                            "title",
+                            "company"
+                        ],
+                        "properties": {
+                            "title": {
+                                "type": "string"
+                            },
+                            "company": {
+                                "type": "string"
+                            },
+                            "location": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            ],
+            "origin": "website"
+        })
+    };
+
+    try {
+        const response = await fetch(url, options);
+        const output = await response.json();
+        const jobData = JobDataSchema.parse(output.data.json);
+        return {link: jobLink, ...jobData} as JobData;
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+
 // Extract job info using browser-use for robust parsing
 async function extractJobDataWithBrowserUse(jobLink: string): Promise<JobData> {
 
@@ -164,7 +229,14 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const jobData = await extractJobDataWithBrowserUse(jobLink);
+        const jobData = await extractJobData(jobLink);
+        if (!jobData) {
+            return NextResponse.json(
+                { error: "Failed to extract job data" },
+                { status: 500 }
+            );
+        }
+
         return await processJob(jobData, userId);
     } catch (error) {
         console.error("Error adding external job:", error);
