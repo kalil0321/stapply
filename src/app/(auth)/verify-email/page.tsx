@@ -52,18 +52,13 @@ export default function VerifyEmailPage() {
         setError("");
         
         try {
-            // Call the better-auth API endpoint directly
-            const response = await fetch('/api/auth/verify-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ token: verificationToken }),
+            const result = await authClient.verifyEmail({
+                query: {
+                    token: verificationToken
+                }
             });
 
-            const result = await response.json();
-
-            if (response.ok && result.success) {
+            if (result.data) {
                 setVerified(true);
                 setMessage("Your email has been successfully verified!");
                 // Redirect to dashboard after a short delay
@@ -71,7 +66,7 @@ export default function VerifyEmailPage() {
                     router.push("/");
                 }, 2000);
             } else {
-                setError(result.message || "Verification failed. Please try again.");
+                setError(result.error?.message || "Verification failed. Please try again.");
             }
         } catch (verifyError: any) {
             console.error("Email verification failed:", verifyError);
