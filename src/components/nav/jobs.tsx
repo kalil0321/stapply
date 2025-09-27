@@ -10,6 +10,7 @@ import {
     SidebarMenu,
     SidebarGroupContent,
 } from "@/components/ui/sidebar";
+import Link from "next/link";
 
 export function NavJobs({
     items,
@@ -27,12 +28,12 @@ export function NavJobs({
                         {items.map((item) => (
                             <SidebarMenuItem key={item.title}>
                                 <SidebarMenuButton asChild tooltip={item.title}>
-                                    <a href={item.url}>
+                                    <Link prefetch={true} href={item.url}>
                                         {item.icon && (
                                             <item.icon className="size-4" />
                                         )}
                                         <span>{item.title}</span>
-                                    </a>
+                                    </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                         ))}

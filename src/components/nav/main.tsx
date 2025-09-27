@@ -138,6 +138,7 @@ export function NavMain({
                             <SidebarMenuButton asChild>
                                 <Link
                                     href="/history"
+                                    prefetch={true}
                                     className="flex items-center gap-2"
                                 >
                                     <HistoryIcon className="size-4 text-muted-foreground" />
