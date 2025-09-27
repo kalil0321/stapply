@@ -170,7 +170,6 @@ export default function ApplicationPage() {
             <ServerApplicationView
                 application={application}
                 status={status}
-                isSuccess={isSuccess}
                 output={output}
             />
         );
