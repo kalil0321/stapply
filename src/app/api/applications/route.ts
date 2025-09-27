@@ -95,19 +95,18 @@ export async function POST(req: NextRequest) {
             const data = await response.json();
 
             // Store the application in the database
-            // const [newApplication] = await db
-            //     .insert(applications)
-            //     .values({
-            //         userId,
-            //         jobId,
-            //         // steel session id as task id
-            //         taskId: data.task_id,
-            //     })
-            //     .returning();
+            const [newApplication] = await db
+                .insert(applications)
+                .values({
+                    userId,
+                    jobId,
+                    taskId: data.task_id,
+                })
+                .returning();
 
             // console.log(`[Application ${jobId}] Application saved with ID: ${newApplication.id}`);
 
-            return NextResponse.json({ 
+            return NextResponse.json({
                 live_url: data.live_url,
                 fallback_url: data.fallback_url,
                 replay_url: data.replay_url,

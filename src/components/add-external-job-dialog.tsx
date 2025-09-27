@@ -114,7 +114,7 @@ export function AddExternalJobDialog({
         
         // Show enhanced processing toast
         const processingToast = toast.loading("Analyzing job posting...", {
-            description: "Using AI to extract job details from the URL",
+            description: "Extracting job details from the URL",
         });
         
         try {
