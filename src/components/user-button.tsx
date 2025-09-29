@@ -27,12 +27,14 @@ import { signOut, useSession } from "@/lib/auth/client";
 import { Skeleton } from "./ui/skeleton";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useCustomer } from "autumn-js/react";
 
 export function UserButton({
     variant = "sidebar",
 }: {
     variant?: "sidebar" | "dropdown";
 }) {
+    const { customer } = useCustomer();
     const router = useRouter();
     const { theme, setTheme } = useTheme();
     const { data: session, isPending, error, refetch } = useSession();
@@ -105,8 +107,48 @@ export function UserButton({
     const name = user.name || "User";
     const email = user.email || "";
     const avatar = user.image || "/placeholder.svg";
+    const tier = customer?.products.filter(p => p.status === "active").map(p => p.id)[0];
     return (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <div className="mb-4 w-full flex flex-wrap items-center justify-center gap-4 text-xs">
+                <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-muted/70 border border-muted shadow-sm min-w-[90px]">
+                    <span className="inline-block w-2 h-2 rounded-full mx-1"
+                        style={{
+                            background:
+                                tier === "pro"
+                                    ? "#22c55e"
+                                    : tier === "premium"
+                                    ? "#3b82f6"
+                                    : tier
+                                    ? "#f59e42"
+                                    : "#a3a3a3",
+                        }}
+                        aria-label={tier || "none"}
+                    />
+                    <span className={`capitalize font-semibold ${tier ? "text-primary" : "text-muted-foreground"}`}>
+                        {tier || "None"}
+                    </span>
+                </div>
+                <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-muted/70 border border-muted shadow-sm min-w-[180px]">
+                    <div className="flex items-center gap-1">
+                        <span className="font-medium text-foreground">Applications</span>
+                        <span className="font-mono text-foreground bg-background/70 rounded px-1 py-0.5">
+                            {customer?.features?.application?.balance !== undefined
+                                ? customer.features.application.balance
+                                : <span className="italic text-muted-foreground">N/A</span>}
+                        </span>
+                    </div>
+                    <span className="text-muted-foreground">/</span>
+                    <div className="flex items-center gap-1">
+                        <span className="font-medium text-foreground">Searches</span>
+                        <span className="font-mono text-foreground bg-background/70 rounded px-1 py-0.5">
+                            {customer?.features?.search?.balance !== undefined
+                                ? customer.features.search.balance
+                                : <span className="italic text-muted-foreground">N/A</span>}
+                        </span>
+                    </div>
+                </div>
+            </div>
             <DialogTrigger asChild>
                 {variant === "sidebar" ? (
                     <SidebarMenuButton
