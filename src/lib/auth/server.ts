@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db/drizzle";
 import { users, sessions, accounts, verifications, apikeys } from "@/db/schema";
 import { lastLoginMethod } from "better-auth/plugins";
+import { autumn } from "autumn-js/better-auth";
 
 const RESEND_API_ENDPOINT = "https://api.resend.com/emails";
 const DEFAULT_FROM_ADDRESS = "Kalil from Stapply <stapply@kalil0321.com>";
@@ -155,5 +156,6 @@ export const auth = betterAuth({
         // }),
         nextCookies(),
         lastLoginMethod(),
+        autumn(),
     ],
 });
