@@ -16,8 +16,6 @@ import {
     MoonIcon,
     FileTextIcon,
     HeartIcon,
-    BellIcon,
-    SettingsIcon,
     CreditCardIcon,
     LogOutIcon,
 } from "lucide-react";
@@ -34,7 +32,7 @@ export function UserButton({
 }: {
     variant?: "sidebar" | "dropdown";
 }) {
-    const { customer } = useCustomer();
+    const { customer, openBillingPortal } = useCustomer();
     const router = useRouter();
     const { theme, setTheme } = useTheme();
     const { data: session, isPending, error, refetch } = useSession();
@@ -118,10 +116,10 @@ export function UserButton({
                                 tier === "pro"
                                     ? "#22c55e"
                                     : tier === "premium"
-                                    ? "#3b82f6"
-                                    : tier
-                                    ? "#f59e42"
-                                    : "#a3a3a3",
+                                        ? "#3b82f6"
+                                        : tier
+                                            ? "#f59e42"
+                                            : "#a3a3a3",
                         }}
                         aria-label={tier || "none"}
                     />
@@ -285,31 +283,18 @@ export function UserButton({
                         </Badge>
                     </Button> */}
 
-                    {/* <div className="border-t pt-2 space-y-2">
+                    <div className="border-t pt-2 space-y-2">
                         <Button
                             variant="ghost"
                             className="w-full justify-start"
                             onClick={() => {
-                                router.push("/settings");
-                                setIsDialogOpen(false);
-                            }}
-                        >
-                            <SettingsIcon className="size-4 mr-2" />
-                            Settings
-                        </Button> 
-
-                        <Button
-                            variant="ghost"
-                            className="w-full justify-start"
-                            onClick={() => {
-                                router.push("/billing");
-                                setIsDialogOpen(false);
+                                openBillingPortal();
                             }}
                         >
                             <CreditCardIcon className="size-4 mr-2" />
                             Billing
                         </Button>
-                    </div> */}
+                    </div>
 
                     <div className="border-t pt-2">
                         <Button
