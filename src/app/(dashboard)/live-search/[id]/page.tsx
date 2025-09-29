@@ -116,60 +116,6 @@ export default function LiveSearchPage() {
         }
     };
 
-    // Helper function to get status badge with success indicator
-    const getStatusBadge = (status: string, isSuccess?: boolean | null) => {
-        switch (status) {
-            case "pending":
-                return (
-                    <Badge variant="secondary" className="gap-1">
-                        <Clock className="h-3 w-3" />
-                        Pending
-                    </Badge>
-                );
-            case "running":
-                return (
-                    <Badge variant="default" className="gap-1 bg-blue-500">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Running
-                    </Badge>
-                );
-            case "completed":
-                const successVariant = isSuccess === false ? "destructive" : "default";
-                const successColor = isSuccess === false ? "" : "bg-green-500";
-                const successIcon = isSuccess === false ? XCircle : CheckCircle;
-                const successText = isSuccess === false ? "Failed" : "Completed";
-                const SuccessIcon = successIcon;
-
-                return (
-                    <Badge variant={successVariant} className={`gap-1 ${successColor}`}>
-                        <SuccessIcon className="h-3 w-3" />
-                        {successText}
-                    </Badge>
-                );
-            case "failed":
-                return (
-                    <Badge variant="destructive" className="gap-1">
-                        <XCircle className="h-3 w-3" />
-                        Failed
-                    </Badge>
-                );
-            case "stopped":
-                return (
-                    <Badge variant="secondary" className="gap-1">
-                        <StopCircle className="h-3 w-3" />
-                        Stopped
-                    </Badge>
-                );
-            default:
-                return (
-                    <Badge variant="outline" className="gap-1">
-                        <Clock className="h-3 w-3" />
-                        Unknown
-                    </Badge>
-                );
-        }
-    };
-
     // Reset iframe loading when URL changes
     useEffect(() => {
         if (taskData?.url) {
