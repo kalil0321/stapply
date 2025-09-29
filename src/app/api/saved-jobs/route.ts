@@ -83,6 +83,7 @@ export async function GET() {
         const userSavedJobs = await db
             .select({
                 id: savedJobs.id,
+                userId: savedJobs.userId,
                 jobId: savedJobs.jobId,
                 notes: savedJobs.notes,
                 status: savedJobs.status,
@@ -97,6 +98,7 @@ export async function GET() {
                     company: jobs.company,
                     description: jobs.description,
                     industry: jobs.industry,
+                    employmentType: jobs.employmentType,
                     postedAt: jobs.postedAt,
                     createdAt: jobs.createdAt,
                 },

@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import type { SavedJob, Job } from "@/lib/types";
 
 interface SaveJobData {
     jobId: string;
@@ -8,8 +9,65 @@ interface SaveJobData {
     status?: "interested" | "applied" | "interview" | "rejected" | "offer";
 }
 
+interface ExternalJobData {
+    title: string;
+    company: string;
+    location?: string;
+    link?: string;
+    description?: string;
+    notes?: string;
+    status?: string;
+}
+
+// API response type that includes the joined job data
+interface SavedJobResponse {
+    id: string;
+    userId: string;
+    jobId: string;
+    notes: string | null;
+    status: string | null;
+    createdAt: string;
+    updatedAt: string;
+    job: {
+        id: string;
+        link: string;
+        title: string;
+        location: string | null;
+        company: string;
+        description: string | null;
+        industry: string | null;
+        employmentType: string | null;
+        postedAt: string | null;
+        createdAt: string | null;
+    };
+}
+
+// Helper function to convert API response to the expected SavedJob format
+const convertToSavedJob = (response: SavedJobResponse): SavedJob => {
+    return {
+        id: response.id,
+        userId: response.userId,
+        jobId: response.jobId,
+        notes: response.notes || undefined,
+        status: (response.status as "interested" | "applied" | "interview" | "rejected" | "offer") || "interested",
+        createdAt: new Date(response.createdAt),
+        updatedAt: new Date(response.updatedAt),
+        job: {
+            id: response.job.id,
+            link: response.job.link,
+            title: response.job.title,
+            location: response.job.location || undefined,
+            company: response.job.company,
+            description: response.job.description || undefined,
+            employment_type: response.job.employmentType || undefined,
+            industry: response.job.industry || undefined,
+            posted_at: response.job.postedAt ? new Date(response.job.postedAt) : undefined,
+            created_at: response.job.createdAt ? new Date(response.job.createdAt) : undefined,
+        },
+    };
+};
+
 export function useSavedJobs() {
-    const queryClient = useQueryClient();
     const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState<Record<string, boolean>>({});
     const [isAddingExternal, setIsAddingExternal] = useState(false);
@@ -72,7 +130,6 @@ export function useSavedJobs() {
     const removeJobMutation = useMutation({
         mutationFn: async ({
             savedJobId,
-            jobId,
         }: {
             savedJobId: string;
             jobId: string;
@@ -148,32 +205,47 @@ export function useSavedJobs() {
     }, []);
 
     const {
-        data: savedJobs = [],
+        data: savedJobsResponse = [],
         refetch: refetchSavedJobs,
         isFetching: fetchingSavedJobs,
         isLoading: isSavedJobsLoading,
-    } = useQuery({
+    } = useQuery<SavedJobResponse[]>({
         queryKey: ["savedJobs"],
         queryFn: fetchSavedJobsQuery,
     });
 
-    // Handle side effects when savedJobs data changes
+    // Convert API response to expected SavedJob format
+    const savedJobs: SavedJob[] = savedJobsResponse.map(convertToSavedJob);
+
+    // Use ref to track previous job IDs and only update when they actually change
+    const prevJobIdsRef = useRef<string>('');
+    
+    // Create a stable string representation of job IDs
+    const currentJobIdsString = useMemo(() => {
+        return savedJobsResponse
+            .map((saved: SavedJobResponse) => saved.jobId)
+            .sort()
+            .join(',');
+    }, [savedJobsResponse]);
+
+    // Handle side effects when job IDs actually change
     useEffect(() => {
-        if (savedJobs) {
+        if (prevJobIdsRef.current !== currentJobIdsString) {
             const jobIds = new Set<string>(
-                savedJobs.map((saved: any) => saved.jobId as string) || []
+                currentJobIdsString ? currentJobIdsString.split(',') : []
             );
             setSavedJobIds(jobIds);
+            prevJobIdsRef.current = currentJobIdsString;
         }
-    }, [savedJobs]);
+    }, [currentJobIdsString]);
 
     const addExternalJobsMutation = useMutation({
         mutationFn: async ({
             jobsData,
             mode,
         }: {
-            jobsData: any;
-            mode: string;
+            jobsData: ExternalJobData | ExternalJobData[];
+            mode: "individual" | "bulk";
         }) => {
             const response = await fetch("/api/saved-jobs/external", {
                 method: "POST",
@@ -194,7 +266,7 @@ export function useSavedJobs() {
     });
 
     const addExternalJobs = useCallback(
-        async (jobsData: any, mode: "individual" | "bulk") => {
+        async (jobsData: ExternalJobData | ExternalJobData[], mode: "individual" | "bulk") => {
             setIsAddingExternal(true);
             try {
                 const result = await addExternalJobsMutation.mutateAsync({
