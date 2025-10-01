@@ -9,3 +9,6 @@ pydantic
 python-dotenv
 websocket-client
 pillow
+fastapi
+uvicorn
+browserbase

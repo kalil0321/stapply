@@ -115,6 +115,10 @@ async def start_chrome_with_debug_port(task_id: str = None, port: int = None):
     
     # Create temporary directory for Chrome user data
     user_data_dir = tempfile.mkdtemp(prefix="chrome_cdp_")
+    
+    # Store user data dir in task tracking
+    if task_id:
+        task_chrome_instances[task_id]['user_data_dir'] = user_data_dir
 
     # Chrome launch command
     chrome_paths = [
@@ -157,9 +161,9 @@ async def start_chrome_with_debug_port(task_id: str = None, port: int = None):
         "--window-size=1920,1080",  # Set viewport dimensions to match screencast
         "--force-device-scale-factor=1",  # Ensure consistent scaling
         "--disable-dev-shm-usage",  # Prevent shared memory issues
-        "--no-sandbox",  # Required for headless mode in some environments
+        # "--no-sandbox",  # Required for headless mode in some environments
         "about:blank",  # Start with blank page
-        "--headless=new", # Use new headless mode
+        # "--headless=new", # Use new headless mode
     ]
 
     # Start Chrome process
@@ -185,7 +189,16 @@ async def start_chrome_with_debug_port(task_id: str = None, port: int = None):
 
     if not cdp_ready:
         process.terminate()
+        try:
+            await asyncio.wait_for(process.wait(), timeout=5)
+        except asyncio.TimeoutError:
+            process.kill()
+        # Clean up user data directory
         if task_id and task_id in task_chrome_instances:
+            user_data_dir = task_chrome_instances[task_id].get('user_data_dir')
+            if user_data_dir and os.path.exists(user_data_dir):
+                import shutil
+                shutil.rmtree(user_data_dir, ignore_errors=True)
             del task_chrome_instances[task_id]
         raise RuntimeError("❌ Chrome failed to start with CDP")
 
@@ -1673,6 +1686,60 @@ def get_screenshot(session_id):
         logging.error(f"Screenshot endpoint - Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
+@app.route("/test-agent", methods=["POST"])
+def test_agent():
+    """
+    Simple test endpoint that navigates to google.com for testing browser automation.
+    """
+    try:
+        # Create task ID for tracking
+        task_id = str(uuid.uuid4())
+        
+        # Start the agent task in the background using thread executor
+        def run_test_async_task():
+            try:
+                asyncio.run(
+                    run_test_agent_background(
+                        task_id,
+                        "https://google.com",
+                        "Navigate to Google.com and take a screenshot",
+                    )
+                )
+            except Exception as e:
+                logging.error(f"Test agent task {task_id} failed: {str(e)}")
+                task_results[task_id] = {
+                    "status": "failed",
+                    "message": "Test agent failed",
+                    "result": None,
+                    "error": str(e),
+                }
+
+        thread = threading.Thread(target=run_test_async_task, daemon=True)
+        thread.start()
+
+        # Create the local screencast URL
+        live_stream_url = f"http://localhost:3001/live-stream/{task_id}"
+        screencast_url = f"http://localhost:3001/screencast/{task_id}"
+        replay_url = f"http://localhost:3001/replay/{task_id}"
+
+        # Return task ID and URLs immediately
+        return jsonify(
+            {
+                "task_id": task_id,
+                "live_url": live_stream_url,
+                "fallback_url": screencast_url,
+                "replay_url": replay_url,
+                "status": "started",
+                "message": "Test agent started - navigating to google.com",
+                "target_url": "https://google.com"
+            }
+        )
+
+    except Exception as e:
+        logging.error(f"Error starting test agent: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/apply-job", methods=["POST"])
 def apply_job():
     try:
@@ -1710,7 +1777,7 @@ def apply_job():
             ), 500
 
         # Create task ID for tracking
-        task_id = str(uuid.uuid4())
+        task_id = f"stapply-{str(uuid.uuid4())}"
         cdp_url = "http://localhost:9222"
         
         # Store session info for tracking
@@ -1777,6 +1844,124 @@ def apply_job():
 task_results = {}
 
 
+async def cleanup_chrome_instance(task_id: str):
+    """
+    Clean up Chrome instance and associated resources for a task.
+    """
+    try:
+        if task_id in task_chrome_instances:
+            instance = task_chrome_instances[task_id]
+            process = instance.get('process')
+            user_data_dir = instance.get('user_data_dir')
+            
+            # Terminate Chrome process
+            if process and process.returncode is None:
+                print(f"🧹 Terminating Chrome process for task {task_id}")
+                process.terminate()
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=5)
+                    print(f"✅ Chrome process terminated for task {task_id}")
+                except asyncio.TimeoutError:
+                    print(f"⚠️  Force killing Chrome process for task {task_id}")
+                    process.kill()
+                    await asyncio.wait_for(process.wait(), timeout=3)
+            
+            # Clean up user data directory
+            if user_data_dir and os.path.exists(user_data_dir):
+                import shutil
+                try:
+                    shutil.rmtree(user_data_dir, ignore_errors=True)
+                    print(f"✅ Cleaned up user data directory for task {task_id}")
+                except Exception as cleanup_error:
+                    print(f"⚠️  Failed to cleanup user data directory: {cleanup_error}")
+            
+            # Remove from tracking
+            del task_chrome_instances[task_id]
+            print(f"✅ Task {task_id} cleanup completed")
+            
+    except Exception as e:
+        print(f"❌ Error during cleanup for task {task_id}: {str(e)}")
+
+
+async def run_test_agent_background(
+    task_id: str,
+    target_url: str,
+    task_description: str,
+):
+    """
+    Run a simple test agent that navigates to a URL and takes a screenshot.
+    """
+    try:
+        # Update task status
+        task_results[task_id] = {
+            "status": "running",
+            "message": "Test agent is navigating to the target URL...",
+            "result": None,
+            "error": None,
+        }
+
+        # Start Chrome with task-specific tracking
+        # process, port = await start_chrome_with_debug_port(task_id=task_id)
+        # actual_cdp_url = f"http://localhost:{port}"
+        
+        from browserbase import Browserbase
+
+        print(f"Browserbase API Key: {os.environ['BROWSERBASE_API_KEY']}")
+        print(f"Browserbase Project ID: {os.environ['BROWSERBASE_PROJECT_ID']}")
+
+        bb = Browserbase(api_key=os.environ["BROWSERBASE_API_KEY"])
+        session = bb.sessions.create(project_id=os.environ["BROWSERBASE_PROJECT_ID"])
+        
+        print(f"Session ID: {session.id}")
+        print(f"Debug URL: https://www.browserbase.com/sessions/{session.id}")
+
+        actual_cdp_url = session.connect_url
+
+        # Connect Playwright to the same Chrome instance
+        await connect_playwright_to_cdp(actual_cdp_url)
+
+        # Create Browser-Use session connected to same Chrome
+        browser_session = BrowserSession(cdp_url=actual_cdp_url, headless=True)
+
+        # Simple task: navigate to the URL and take a screenshot
+        task_text = f"Navigate to {target_url} and search for Browser Use"
+
+        agent = Agent(
+            task=task_text,
+            llm=ChatOpenAI(model="gpt-4.1-mini"),
+            browser_session=browser_session,
+            tools=tools,
+        )
+
+        # Run with timeout to prevent hanging
+        try:
+            result = await asyncio.wait_for(agent.run(), timeout=300)  # 5 minute timeout
+        except asyncio.TimeoutError:
+            raise Exception("Agent task timed out after 5 minutes")
+
+        # Update task status with result
+        task_results[task_id] = {
+            "status": "completed",
+            "message": "Test agent completed successfully",
+            "result": result,
+            "error": None,
+        }
+
+    except Exception as e:
+        # Update task status with error
+        task_results[task_id] = {
+            "status": "failed",
+            "message": "Test agent failed",
+            "result": None,
+            "error": str(e),
+        }
+        logging.error(f"Test agent task {task_id} failed: {str(e)}")
+    
+    finally:
+        # Always cleanup Chrome instance when task finishes (success or failure)
+        await cleanup_chrome_instance(task_id)
+
+
 async def run_agent_background(
     task_id: str,
     cdp_url: str,
@@ -1799,17 +1984,23 @@ async def run_agent_background(
             "error": None,
         }
 
-        # Run the agent
-        result = await run_agent(
-            task_id,
-            cdp_url,
-            link,
-            additional_information,
-            headless,
-            max_steps,
-            resume_url,
-            profile,
-        )
+        # Run the agent with timeout
+        try:
+            result = await asyncio.wait_for(
+                run_agent(
+                    task_id,
+                    cdp_url,
+                    link,
+                    additional_information,
+                    headless,
+                    max_steps,
+                    resume_url,
+                    profile,
+                ),
+                timeout=1800  # 30 minute timeout for job applications
+            )
+        except asyncio.TimeoutError:
+            raise Exception("Job application timed out after 30 minutes")
 
         # Update task status with result
         task_results[task_id] = {
@@ -1828,6 +2019,10 @@ async def run_agent_background(
             "error": str(e),
         }
         logging.error(f"Background task {task_id} failed: {str(e)}")
+    
+    finally:
+        # Always cleanup Chrome instance when task finishes
+        await cleanup_chrome_instance(task_id)
 
 
 async def run_agent(
@@ -1906,6 +2101,56 @@ def get_task_status(task_id):
 
     except Exception as e:
         logging.error(f"Error getting task status: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/cleanup-task/<task_id>", methods=["POST"])
+def cleanup_task_manual(task_id):
+    """
+    Manually cleanup a specific task's Chrome instance.
+    """
+    try:
+        def run_cleanup():
+            asyncio.run(cleanup_chrome_instance(task_id))
+        
+        thread = threading.Thread(target=run_cleanup, daemon=True)
+        thread.start()
+        
+        return jsonify({
+            "status": "cleanup_started",
+            "task_id": task_id,
+            "message": "Chrome instance cleanup initiated"
+        })
+
+    except Exception as e:
+        logging.error(f"Error cleaning up task {task_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/cleanup-all", methods=["POST"])
+def cleanup_all_tasks():
+    """
+    Cleanup all active Chrome instances and tasks.
+    """
+    try:
+        active_task_ids = list(task_chrome_instances.keys())
+        
+        def run_cleanup_all():
+            for task_id in active_task_ids:
+                asyncio.run(cleanup_chrome_instance(task_id))
+        
+        thread = threading.Thread(target=run_cleanup_all, daemon=True)
+        thread.start()
+        
+        return jsonify({
+            "status": "cleanup_started",
+            "tasks_to_cleanup": len(active_task_ids),
+            "task_ids": active_task_ids,
+            "message": f"Cleanup initiated for {len(active_task_ids)} Chrome instances"
+        })
+
+    except Exception as e:
+        logging.error(f"Error cleaning up all tasks: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
