@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
     UserCircleIcon,
     SunIcon,
@@ -32,10 +31,10 @@ export function UserButton({
 }: {
     variant?: "sidebar" | "dropdown";
 }) {
-    const { customer, openBillingPortal, isLoading:isCustomerLoading } = useCustomer();
+    const { customer, openBillingPortal, isLoading: isCustomerLoading } = useCustomer();
     const router = useRouter();
     const { theme, setTheme } = useTheme();
-    const { data: session, isPending, error, refetch } = useSession();
+    const { data: session, isPending: isUserLoading, error } = useSession();
     const user = session?.user;
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -56,32 +55,11 @@ export function UserButton({
         return () => document.removeEventListener("keydown", handleKeyDown);
     }, [theme, setTheme]);
 
-    if (isPending) {
-        // Create loading skeleton that matches the actual content structure
-        return variant === "sidebar" ? (
-            <SidebarMenuButton size="lg" className="cursor-default" disabled>
-                <Skeleton className="h-8 w-8 rounded-lg" />
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                    <Skeleton className="h-4 w-20 mb-1" />
-                    <Skeleton className="h-3 w-32" />
-                </div>
-            </SidebarMenuButton>
-        ) : (
-            <button
-                className="rounded-lg focus:outline-none cursor-default"
-                disabled
-                aria-label="Loading user profile"
-            >
-                <Skeleton className="h-6 w-6 rounded-lg" />
-            </button>
-        );
-    }
-
     if (error) {
         return <div>Error: {error.message}</div>;
     }
 
-    if (!user) {
+    if (!user && !isUserLoading) {
         // Create "no user" skeleton that matches the actual content structure
         return variant === "sidebar" ? (
             <SidebarMenuButton size="lg" className="cursor-default" disabled>
@@ -102,38 +80,46 @@ export function UserButton({
         );
     }
 
-    const name = user.name || "User";
-    const email = user.email || "";
-    const avatar = user.image || "/placeholder.svg";
+    // Use skeletons in-place for user info if loading
+    const name = isUserLoading
+        ? ""
+        : user?.name || "";
+    const email = isUserLoading
+        ? ""
+        : user?.email || "";
+    const avatar = isUserLoading
+        ? ""
+        : user?.image || "/placeholder.svg";
     const tier = customer?.products.filter(p => p.status === "active").map(p => p.id)[0];
+
     return (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <div className="mb-4 w-full flex flex-wrap items-center justify-center gap-4 text-xs">
-                <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-muted/70 border border-muted shadow-sm min-w-[90px]">
-                    <span className="inline-block w-2 h-2 rounded-full mx-1"
-                        style={{
-                            background:
-                                tier === "pro"
-                                    ? "#22c55e"
-                                    : tier === "premium"
-                                        ? "#3b82f6"
-                                        : tier
-                                            ? "#f59e42"
-                                            : "#a3a3a3",
-                        }}
-                        aria-label={tier || "none"}
-                    />
-                    <span className={`capitalize font-semibold ${tier ? "text-primary" : "text-muted-foreground"}`}>
-                        {tier || "None"}
-                    </span>
-                </div>
-                <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-muted/70 border border-muted shadow-sm min-w-[180px]">
+                <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-muted/70 border border-muted shadow-sm min-w-[180px]">
+                    <div className="gap-1 border-r-3 border-muted pr-1">
+                        <span className="inline-block w-2 h-2 rounded-full mx-1"
+                            style={{
+                                background:
+                                    tier === "pro"
+                                        ? "#22c55e"
+                                        : tier === "premium"
+                                            ? "#3b82f6"
+                                            : tier
+                                                ? "#f59e42"
+                                                : "#a3a3a3",
+                            }}
+                            aria-label={tier || "..."}
+                        />
+                        <span className={`capitalize font-semibold ${tier ? "text-primary" : "text-muted-foreground"} ${isCustomerLoading ? "animate-pulse" : ""}`}>
+                            {tier || "..."}
+                        </span>
+                    </div>
                     <div className="flex items-center gap-1">
                         <span className="font-medium text-foreground">Applications</span>
                         <span className="font-mono text-foreground bg-background/70 rounded px-1 py-0.5">
                             {customer?.features?.application?.balance !== undefined
                                 ? customer.features.application.balance
-                                : <span className="italic text-muted-foreground">N/A</span>}
+                                : <span className={`italic text-muted-foreground ${isCustomerLoading ? "animate-pulse" : ""}`}>...</span>}
                         </span>
                     </div>
                     <span className="text-muted-foreground">/</span>
@@ -142,7 +128,7 @@ export function UserButton({
                         <span className="font-mono text-foreground bg-background/70 rounded px-1 py-0.5">
                             {customer?.features?.search?.balance !== undefined
                                 ? customer.features.search.balance
-                                : <span className="italic text-muted-foreground">N/A</span>}
+                                : <span className={`italic text-muted-foreground ${isCustomerLoading ? "animate-pulse" : ""}`}>...</span>}
                         </span>
                     </div>
                 </div>
@@ -152,35 +138,72 @@ export function UserButton({
                     <SidebarMenuButton
                         size="lg"
                         className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                        disabled={isUserLoading}
                     >
                         <Avatar className="h-8 w-8 rounded-lg">
-                            <AvatarImage src={avatar} alt={name} />
-                            <AvatarFallback className="rounded-lg bg-muted border border-border text-black">
-                                {name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
-                            </AvatarFallback>
+                            {isUserLoading ? (
+                                <>
+                                    <AvatarFallback className="rounded-lg bg-muted border border-border text-black relative">
+                                        <Skeleton className="absolute inset-0 h-full w-full rounded-lg" />
+                                    </AvatarFallback>
+                                </>
+                            ) : (
+                                <>
+                                    <AvatarImage src={avatar} alt={name} />
+                                    <AvatarFallback className="rounded-lg bg-muted border border-border text-black">
+                                        {name
+                                            .split(" ")
+                                            .map((n) => n[0])
+                                            .join("")}
+                                    </AvatarFallback>
+                                </>
+                            )}
                         </Avatar>
                         <div className="grid flex-1 text-left text-sm leading-tight">
-                            <span className="truncate font-medium">{name}</span>
+                            <span className="truncate font-medium relative">
+                                {isUserLoading ? (
+                                    <>
+                                        <Skeleton className="absolute left-0 top-0 h-4 w-20 animate-pulse" />
+                                    </>
+                                ) : (
+                                    name
+                                )}
+                            </span>
                             <div className="flex items-center gap-1">
-                                <span className="truncate text-xs text-muted-foreground">
-                                    {email}
+                                <span className="truncate text-xs text-muted-foreground relative">
+                                    {isUserLoading ? (
+                                        <>
+                                            <Skeleton className="absolute left-0 top-0 h-3 w-32 animate-pulse" />
+                                        </>
+                                    ) : (
+                                        email
+                                    )}
                                 </span>
                             </div>
                         </div>
                     </SidebarMenuButton>
                 ) : (
-                    <button className="rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                    <button
+                        className="rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        disabled={isUserLoading}
+                        aria-label={isUserLoading ? "Loading user profile" : name}
+                    >
                         <Avatar className="h-6 w-6 rounded-lg">
-                            <AvatarImage src={avatar} alt={name} />
-                            <AvatarFallback className="rounded-lg bg-muted border border-border text-black">
-                                {name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
-                            </AvatarFallback>
+                            {isUserLoading ? (
+                                <AvatarFallback className="rounded-lg bg-muted border border-border text-black relative">
+                                    <Skeleton className="absolute inset-0 h-full w-full rounded-lg" />
+                                </AvatarFallback>
+                            ) : (
+                                <>
+                                    <AvatarImage src={avatar} alt={name} />
+                                    <AvatarFallback className="rounded-lg bg-muted border border-border text-black">
+                                        {name
+                                            .split(" ")
+                                            .map((n) => n[0])
+                                            .join("")}
+                                    </AvatarFallback>
+                                </>
+                            )}
                         </Avatar>
                     </button>
                 )}
@@ -189,18 +212,40 @@ export function UserButton({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 rounded-lg">
-                            <AvatarImage src={avatar} alt={name} />
-                            <AvatarFallback className="rounded-lg bg-muted border border-border text-black">
-                                {name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
-                            </AvatarFallback>
+                            {isUserLoading ? (
+                                <AvatarFallback className="rounded-lg bg-muted border border-border text-black relative">
+                                    <Skeleton className="absolute inset-0 h-full w-full rounded-lg" />
+                                </AvatarFallback>
+                            ) : (
+                                <>
+                                    <AvatarImage src={avatar} alt={name} />
+                                    <AvatarFallback className="rounded-lg bg-muted border border-border text-black">
+                                        {name
+                                            .split(" ")
+                                            .map((n) => n[0])
+                                            .join("")}
+                                    </AvatarFallback>
+                                </>
+                            )}
                         </Avatar>
                         <div className="text-left">
-                            <div className="font-medium">{name}</div>
-                            <div className="text-sm text-muted-foreground font-normal">
-                                {email}
+                            <div className="font-medium relative">
+                                {isUserLoading ? (
+                                    <>
+                                        <Skeleton className="absolute left-0 top-0 h-4 w-24 animate-pulse" />
+                                    </>
+                                ) : (
+                                    name
+                                )}
+                            </div>
+                            <div className="text-sm text-muted-foreground font-normal relative">
+                                {isUserLoading ? (
+                                    <>
+                                        <Skeleton className="absolute left-0 top-0 h-3 w-32 animate-pulse" />
+                                    </>
+                                ) : (
+                                    email
+                                )}
                             </div>
                         </div>
                     </DialogTitle>
@@ -214,9 +259,13 @@ export function UserButton({
                             router.push("/profile");
                             setIsDialogOpen(false);
                         }}
+                        disabled={isUserLoading}
                     >
                         <UserCircleIcon className="size-4 mr-2" />
                         Profile & Preferences
+                        {isUserLoading && (
+                            <Skeleton className="ml-2 h-4 w-20 inline-block align-middle" />
+                        )}
                     </Button>
 
                     <Button
@@ -226,6 +275,7 @@ export function UserButton({
                             switchTheme();
                             setIsDialogOpen(false);
                         }}
+                        disabled={isUserLoading}
                     >
                         {theme === "dark" ? (
                             <SunIcon className="size-4 mr-2" />
@@ -239,6 +289,9 @@ export function UserButton({
                                 ? "⌘\\"
                                 : "Ctrl\\"}
                         </span>
+                        {isUserLoading && (
+                            <Skeleton className="ml-2 h-4 w-16 inline-block align-middle" />
+                        )}
                     </Button>
 
                     <Button
@@ -248,9 +301,13 @@ export function UserButton({
                             router.push("/applications");
                             setIsDialogOpen(false);
                         }}
+                        disabled={isUserLoading}
                     >
                         <FileTextIcon className="size-4 mr-2" />
                         My Applications
+                        {isUserLoading && (
+                            <Skeleton className="ml-2 h-4 w-24 inline-block align-middle" />
+                        )}
                     </Button>
 
                     <Button
@@ -260,9 +317,13 @@ export function UserButton({
                             router.push("/saved");
                             setIsDialogOpen(false);
                         }}
+                        disabled={isUserLoading}
                     >
                         <HeartIcon className="size-4 mr-2" />
                         Saved Jobs
+                        {isUserLoading && (
+                            <Skeleton className="ml-2 h-4 w-20 inline-block align-middle" />
+                        )}
                     </Button>
 
                     <div className="border-t pt-2 space-y-2">
@@ -272,9 +333,13 @@ export function UserButton({
                             onClick={() => {
                                 openBillingPortal();
                             }}
+                            disabled={isUserLoading}
                         >
                             <CreditCardIcon className="size-4 mr-2" />
                             Billing
+                            {isUserLoading && (
+                                <Skeleton className="ml-2 h-4 w-16 inline-block align-middle" />
+                            )}
                         </Button>
                     </div>
 
@@ -286,9 +351,13 @@ export function UserButton({
                                 signOut();
                                 setIsDialogOpen(false);
                             }}
+                            disabled={isUserLoading}
                         >
                             <LogOutIcon className="size-4 mr-2" />
                             Log out
+                            {isUserLoading && (
+                                <Skeleton className="ml-2 h-4 w-16 inline-block align-middle" />
+                            )}
                         </Button>
                     </div>
                 </div>
