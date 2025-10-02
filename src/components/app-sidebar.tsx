@@ -10,6 +10,8 @@ import {
     BarChart3,
     RouteIcon,
     RocketIcon,
+    FileTextIcon,
+    MessagesSquareIcon,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav/main";
@@ -58,21 +60,16 @@ const data = {
         },
     ],
     navSecondary: [
-        // { // For debugging purposes
-        //     title: "Analytics",
-        //     url: "/analytics",
-        //     icon: BarChart3,
-        // },
-        // {
-        //     title: "Roadmap",
-        //     url: "/roadmap",
-        //     icon: RouteIcon,
-        // },
-        // {
-        //     title: "Notifications",
-        //     url: "/notifications",
-        //     icon: BellIcon,
-        // },
+        {
+            title: "Resume Builder",
+            url: "/tools/resume",
+            icon: FileTextIcon,
+        },
+        {
+            title: "Interview Prep",
+            url: "/tools/interview",
+            icon: MessagesSquareIcon,
+        },
     ],
 };
 
