@@ -16,13 +16,14 @@ import {
     AlertCircleIcon,
     XCircleIcon,
     PlusCircleIcon,
+    PlusIcon,
     MoreHorizontalIcon,
     ArrowRightIcon,
     BookmarkIcon,
     TrashIcon,
 } from "lucide-react";
 import { useApplications } from "@/hooks/use-applications";
-import { AddApplicationDialog } from "@/components/add-application-dialog";
+import { ApplicationActionsDialog } from "@/components/application-actions-dialog";
 import { DeleteApplicationDialog } from "@/components/delete-application-dialog";
 
 // Helper function to determine status based on application age
@@ -95,7 +96,7 @@ const getNextStep = (status: string, createdAt: string) => {
 export default function ApplicationsPage() {
     const { applications, isLoading, error, refetchApplications, deleteApplication, isDeleting } =
         useApplications();
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [applicationToDelete, setApplicationToDelete] = useState<any>(null);
     const router = useRouter();
@@ -262,12 +263,12 @@ export default function ApplicationsPage() {
                             Apply to Saved
                         </Button>
                         <Button
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => setIsDialogOpen(true)}
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setIsActionDialogOpen(true)}
+                            aria-label="Add application"
                         >
-                            <PlusCircleIcon className="size-4" />
-                            Add Application
+                            <PlusIcon className="size-4" />
                         </Button>
                     </div>
                 </div>
@@ -530,7 +531,7 @@ export default function ApplicationsPage() {
                             </Button>
                             <Button
                                 className="gap-2"
-                                onClick={() => setIsDialogOpen(true)}
+                                onClick={() => setIsActionDialogOpen(true)}
                             >
                                 <PlusCircleIcon className="size-4" />
                                 Add Your First Application
@@ -540,9 +541,9 @@ export default function ApplicationsPage() {
                 )}
             </div>
 
-            <AddApplicationDialog
-                open={isDialogOpen}
-                onOpenChange={setIsDialogOpen}
+            <ApplicationActionsDialog
+                open={isActionDialogOpen}
+                onOpenChange={setIsActionDialogOpen}
                 onApplicationAdded={handleApplicationAdded}
             />
 

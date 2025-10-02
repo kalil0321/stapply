@@ -1686,71 +1686,15 @@ def get_screenshot(session_id):
         logging.error(f"Screenshot endpoint - Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
-@app.route("/test-agent", methods=["POST"])
-def test_agent():
-    """
-    Simple test endpoint that navigates to google.com for testing browser automation.
-    """
+def process_job_application_request(data: dict) -> tuple[dict, int]:
     try:
-        # Create task ID for tracking
-        task_id = str(uuid.uuid4())
-        
-        # Start the agent task in the background using thread executor
-        def run_test_async_task():
-            try:
-                asyncio.run(
-                    run_test_agent_background(
-                        task_id,
-                        "https://google.com",
-                        "Navigate to Google.com and take a screenshot",
-                    )
-                )
-            except Exception as e:
-                logging.error(f"Test agent task {task_id} failed: {str(e)}")
-                task_results[task_id] = {
-                    "status": "failed",
-                    "message": "Test agent failed",
-                    "result": None,
-                    "error": str(e),
-                }
+        if not isinstance(data, dict):
+            return {"error": "Invalid request payload"}, 400
 
-        thread = threading.Thread(target=run_test_async_task, daemon=True)
-        thread.start()
-
-        # Create the local screencast URL
-        live_stream_url = f"http://localhost:3001/live-stream/{task_id}"
-        screencast_url = f"http://localhost:3001/screencast/{task_id}"
-        replay_url = f"http://localhost:3001/replay/{task_id}"
-
-        # Return task ID and URLs immediately
-        return jsonify(
-            {
-                "task_id": task_id,
-                "live_url": live_stream_url,
-                "fallback_url": screencast_url,
-                "replay_url": replay_url,
-                "status": "started",
-                "message": "Test agent started - navigating to google.com",
-                "target_url": "https://google.com"
-            }
-        )
-
-    except Exception as e:
-        logging.error(f"Error starting test agent: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/apply-job", methods=["POST"])
-def apply_job():
-    try:
-        # Get data from POST request
-        data = request.get_json()
-
-        # Validate required fields
         required_fields = ["job_url", "resume_url", "instructions", "profile"]
         for field in required_fields:
             if field not in data:
-                return jsonify({"error": f"Missing required field: {field}"}), 400
+                return {"error": f"Missing required field: {field}"}, 400
 
         link = data["job_url"]
         additional_information = data.get("instructions", "")
@@ -1759,35 +1703,27 @@ def apply_job():
         resume_url = data.get("resume_url", "")
         profile = data.get("profile", "")
 
-        # Create Steel session
         STEEL_API_KEY = os.getenv("STEEL_API_KEY")
         if not STEEL_API_KEY:
-            return jsonify(
-                {"error": "STEEL_API_KEY environment variable is required"}
-            ), 400
+            return {"error": "STEEL_API_KEY environment variable is required"}, 400
 
-        session = None
         try:
-            client = Steel(steel_api_key=STEEL_API_KEY)
-            # session = client.sessions.create()
+            Steel(steel_api_key=STEEL_API_KEY)
         except Exception as steel_error:
             logging.error(f"Failed to create Steel session: {str(steel_error)}")
-            return jsonify(
-                {"error": f"Failed to create Steel session: {str(steel_error)}"}
-            ), 500
+            return {
+                "error": f"Failed to create Steel session: {str(steel_error)}"
+            }, 500
 
-        # Create task ID for tracking
-        task_id = f"stapply-{str(uuid.uuid4())}"
+        task_id = str(uuid.uuid4())
         cdp_url = "http://localhost:9222"
-        
-        # Store session info for tracking
+
         active_sessions[task_id] = {
             "cdp_url": cdp_url,
             "status": "starting",
-            "created_at": threading.current_thread().ident
+            "created_at": threading.current_thread().ident,
         }
 
-        # Start the agent task in the background using thread executor
         def run_async_task():
             try:
                 asyncio.run(
@@ -1810,34 +1746,54 @@ def apply_job():
                     "result": None,
                     "error": str(e),
                 }
-                # Update session status
                 if task_id in active_sessions:
                     active_sessions[task_id]["status"] = "failed"
 
         thread = threading.Thread(target=run_async_task, daemon=True)
         thread.start()
 
-        # Create the local screencast URL
-        # Generate live stream and screencast URLs
         live_stream_url = f"http://localhost:3001/live-stream/{task_id}"
         screencast_url = f"http://localhost:3001/screencast/{task_id}"
         replay_url = f"http://localhost:3001/replay/{task_id}"
 
-        # Return task ID and live stream URL immediately for client to track progress
-        return jsonify(
+        return (
             {
                 "task_id": task_id,
-                "live_url": live_stream_url,  # Primary: Real-time live stream
-                "fallback_url": screencast_url,  # Fallback: Screenshot-based
-                "replay_url": replay_url,  # Replay: View saved screenshots
+                "live_url": live_stream_url,
+                "fallback_url": screencast_url,
+                "replay_url": replay_url,
                 "status": "started",
                 "message": "Job application process started in background. Use the live_url for real-time streaming, fallback_url for screenshots, or replay_url to view saved screenshots.",
-            }
+            },
+            200,
         )
+    except Exception as exc:
+        logging.error(f"Error processing job application: {str(exc)}")
+        return {"error": str(exc)}, 500
 
-    except Exception as e:
-        logging.error(f"Error processing job application: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+
+@app.route("/apply-job", methods=["POST"])
+def apply_job():
+    try:
+        data = request.get_json(force=True)
+    except Exception as err:
+        logging.error(f"Invalid JSON payload: {str(err)}")
+        return jsonify({"error": "Invalid JSON payload"}), 400
+
+    response_body, status_code = process_job_application_request(data or {})
+    return jsonify(response_body), status_code
+
+
+@app.route("/custom-application", methods=["POST"])
+def custom_application():
+    try:
+        data = request.get_json(force=True)
+    except Exception as err:
+        logging.error(f"Invalid JSON payload: {str(err)}")
+        return jsonify({"error": "Invalid JSON payload"}), 400
+
+    response_body, status_code = process_job_application_request(data or {})
+    return jsonify(response_body), status_code
 
 
 # Global dictionary to store task results
