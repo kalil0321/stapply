@@ -180,7 +180,13 @@ export const applications = pgTable("applications", {
     jobId: uuid("job_id")
         .notNull()
         .references(() => jobs.id),
-    taskId: text("task_id").notNull(),
+    sessionId: text("session_id").notNull(), // Task ID or Session ID
+    liveUrl: text("live_url"),
+    replayUrl: text("replay_url"),
+    status: text("status")
+        .notNull()
+        .default("pending")
+        .$type<"pending" | "completed">(),
     createdAt: timestamp("created_at", { mode: "string" })
         .defaultNow()
         .notNull(),

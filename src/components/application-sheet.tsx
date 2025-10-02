@@ -31,7 +31,6 @@ interface ApplicationSheetProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     savedJob: SavedJob | null;
-    isLocal: boolean;
 }
 
 interface ProfileData {
@@ -53,10 +52,9 @@ export function ApplicationSheet({
     isOpen,
     onOpenChange,
     savedJob,
-    isLocal,
 }: ApplicationSheetProps) {
     const router = useRouter();
-    const { customer, allowed } = useCustomer();
+    const { customer } = useCustomer();
     const [applying, setApplying] = useState(false);
     const [applicationError, setApplicationError] = useState<string | null>(null);
     const [instructions, setInstructions] = useState("");
@@ -103,7 +101,7 @@ export function ApplicationSheet({
             const response = await fetch("/api/applications", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ jobId, instructions, isLocal }),
+                body: JSON.stringify({ jobId, instructions }),
             });
 
             if (!response.ok) {
@@ -132,11 +130,7 @@ export function ApplicationSheet({
     const handleApply = async () => {
         if (!savedJob?.jobId) return;
 
-        // Check customer permissions before applying
-        if (!allowed({ featureId: "application" })) {
-            toast.error("No remaining applications. Please upgrade your plan to apply to jobs.");
-            return;
-        }
+        // Permission check is handled by the API
 
         setApplying(true);
         setApplicationError(null);
@@ -144,18 +138,7 @@ export function ApplicationSheet({
         try {
             const data = await applyMutation.mutateAsync(savedJob.jobId);
             onOpenChange(false);
-
-            if (isLocal) {
-                const params = new URLSearchParams({
-                    live: data.live_url,
-                    fallback: data.fallback_url,
-                    replay: data.replay_url,
-                    task_id: data.task_id
-                });
-                router.push(`/application/${savedJob.jobId}?${params.toString()}`);
-            } else {
-                router.push(`/application/${data.application.id}`);
-            }
+            router.push(`/application/${savedJob.jobId}`);
         } catch (err) {
             console.error("Error submitting application:", err);
             setApplicationError(
@@ -319,10 +302,10 @@ export function ApplicationSheet({
                             ) : (
                                 <div
                                     className={`rounded-lg px-4 pb-4 transition-colors ${criticalMissing.length > 0
-                                            ? "bg-red-50/50 dark:bg-red-900/10"
-                                            : hasAllRecommended
-                                                ? "bg-green-50/50 dark:bg-green-900/10"
-                                                : "bg-amber-50/50 dark:bg-amber-900/10"
+                                        ? "bg-red-50/50 dark:bg-red-900/10"
+                                        : hasAllRecommended
+                                            ? "bg-green-50/50 dark:bg-green-900/10"
+                                            : "bg-amber-50/50 dark:bg-amber-900/10"
                                         }`}
                                 >
                                     <div className="flex items-center gap-3 mb-3">

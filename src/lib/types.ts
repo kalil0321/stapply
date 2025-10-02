@@ -106,7 +106,10 @@ export interface Application {
     id: string;
     userId: string;
     jobId: string;
-    taskId: string;
+    sessionId: string;
+    liveUrl: string;
+    replayUrl: string;
+    status: "pending" | "completed";
     createdAt: Date;
     updatedAt: Date;
     job?: Job; // Optional populated job data

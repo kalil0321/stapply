@@ -33,7 +33,7 @@ export default function Page() {
     const [isLoading, setIsLoading] = useState(false);
     const [isLiveSearchEnabled, setIsLiveSearchEnabled] = useState(false);
     const router = useRouter();
-    const { customer, allowed } = useCustomer();
+    const { customer } = useCustomer();
 
     const createSearchMutation = useMutation({
         mutationFn: async (query: string) => {
@@ -61,11 +61,7 @@ export default function Page() {
     const handleSend = async () => {
         if (!value.trim()) return;
 
-        // Check customer permissions before searching
-        if (!allowed({ featureId: "search" })) {
-            toast.error("No remaining searches. Please upgrade your plan to perform searches.");
-            return;
-        }
+        // Check customer permissions before searching (performed by the API)
 
         setIsLoading(true);
         try {

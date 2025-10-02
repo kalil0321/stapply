@@ -38,7 +38,7 @@ export function AddApplicationDialog({
 
     const addApplicationMutation = useMutation({
         mutationFn: async (url: string) => {
-            const response = await fetch("/api/applications/external", {
+            const response = await fetch("/api/applications", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ jobUrl: url }),

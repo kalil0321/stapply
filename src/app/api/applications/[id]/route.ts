@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/helpers";
 import { db } from "@/db/drizzle";
 import { applications, jobs } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { BrowserUseClient } from "browser-use-sdk";
+import { eq } from "drizzle-orm";
 
 export async function GET(
     req: NextRequest,
@@ -25,14 +24,17 @@ export async function GET(
         }
 
         console.log("Fetching application with ID:", id, "for user:", userId);
-        
+
         // Fetch the application with job details
         const [application] = await db
             .select({
                 id: applications.id,
                 userId: applications.userId,
                 jobId: applications.jobId,
-                taskId: applications.taskId,
+                sessionId: applications.sessionId,
+                status: applications.status,
+                replayUrl: applications.replayUrl,
+                liveUrl: applications.liveUrl,
                 createdAt: applications.createdAt,
                 updatedAt: applications.updatedAt,
                 job: {
@@ -54,7 +56,7 @@ export async function GET(
             .limit(1);
 
         console.log("Database query result:", application ? "Found" : "Not found");
-        
+
         if (!application) {
             // Let's also try to find the application without the job join to see if that's the issue
             const [appOnly] = await db
@@ -62,9 +64,9 @@ export async function GET(
                 .from(applications)
                 .where(eq(applications.id, id))
                 .limit(1);
-            
+
             console.log("Application exists without job join:", appOnly ? "Yes" : "No");
-            
+
             return NextResponse.json(
                 { error: `Application not found. ID: ${id}, User: ${userId}` },
                 { status: 404 }
@@ -76,88 +78,8 @@ export async function GET(
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        let url = null;
-        let output = null;
-        let isSuccess = null;
-        let status = null;
-
-        // Check if this is a server application (stapply)
-        const isServerApplication = application.taskId?.startsWith("stapply-");
-
-        if (isServerApplication) {
-            //TODO: implement the proper logic for this
-            // Handle server applications - check status via local server API
-            try {
-                const serverResponse = await fetch(`http://localhost:3001/task-status/${application.taskId}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                });
-
-                if (serverResponse.ok) {
-                    const serverData = await serverResponse.json();
-                    status = serverData.status || null;
-                    isSuccess = serverData.isSuccess ?? null;
-                    output = serverData.output || null;
-                    console.log("Server application status:", JSON.stringify(serverData, null, 2));
-                } else {
-                    console.warn("Failed to get server application status:", serverResponse.status);
-                    status = "unknown";
-                }
-            } catch (serverError) {
-                console.error("Server API error:", serverError);
-                status = "unknown";
-                // Don't fail the entire request if server API fails
-            }
-        } else {
-            // Handle browser/cloud applications via BrowserUse
-            try {
-                const apiKey = process.env.BROWSER_USE_API_KEY;
-                if (!apiKey) {
-                    throw new Error("BROWSER_USE_API_KEY not configured");
-                }
-                
-                const browser = new BrowserUseClient({
-                    apiKey: apiKey,
-                });
-
-                const task = await browser.tasks.getTask(application.taskId);
-                console.log("BrowserUse task:", JSON.stringify(task, null, 2));
-                
-                if (task && task.sessionId) {
-                    const session = await browser.sessions.getSession(task.sessionId);
-                    url = session?.liveUrl || session?.publicShareUrl || null;
-                    if (!url) {
-                        try {
-                            if (task.sessionId) {
-                                const shareView = await browser.sessions.createSessionPublicShare(task.sessionId);
-                                url = shareView?.shareUrl || null;
-                            }
-                        } catch (shareError) {
-                            console.warn("Failed to create public share:", shareError);
-                        }
-                    }
-                }
-                
-                output = task?.output || null;
-                isSuccess = task?.isSuccess ?? null;
-                status = task?.status || null;
-                
-                console.log("BrowserUse liveUrl:", JSON.stringify(url, null, 2));
-            } catch (browserError) {
-                console.error("BrowserUse API error:", browserError);
-                // Don't fail the entire request if BrowserUse API fails
-                // Just return the application data without browser session info
-            }
-        }
-
-        return NextResponse.json({ 
-            application, 
-            url, 
-            output, 
-            isSuccess, 
-            status 
+        return NextResponse.json({
+            application,
         });
     } catch (error) {
         console.error("Error fetching application:", error);
@@ -189,7 +111,7 @@ export async function DELETE(
         }
 
         console.log("Deleting application with ID:", id, "for user:", userId);
-        
+
         // First, verify the application exists and belongs to the user
         const [existingApplication] = await db
             .select()
@@ -209,39 +131,16 @@ export async function DELETE(
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        // Optional: Cancel the browser automation task if it's still running
-        try {
-            const apiKey = process.env.BROWSER_USE_API_KEY;
-            if (apiKey && existingApplication.taskId) {
-                const browser = new BrowserUseClient({
-                    apiKey: apiKey,
-                });
-
-                // Try to get the task to check its status
-                const task = await browser.tasks.getTask(existingApplication.taskId);
-                console.log("Task status before deletion:", task?.status);
-                
-                // If task is still running, we could potentially cancel it
-                // Note: BrowserUse SDK might not have a cancel method, but we log it for now
-                if (task && ['pending', 'in_progress'].includes(task.status)) {
-                    console.log("Task is still running, but continuing with deletion");
-                }
-            }
-        } catch (browserError) {
-            console.warn("Failed to check/cancel browser task:", browserError);
-            // Don't fail the deletion if browser API fails
-        }
-
         // Delete the application from the database
         await db
             .delete(applications)
             .where(eq(applications.id, id));
 
         console.log("Application deleted successfully:", id);
-        
-        return NextResponse.json({ 
+
+        return NextResponse.json({
             message: "Application deleted successfully",
-            id: id 
+            id: id
         });
     } catch (error) {
         console.error("Error deleting application:", error);
