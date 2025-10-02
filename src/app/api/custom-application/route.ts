@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const response = await fetch("http://localhost:3001/custom-application", {
+        const response = await fetch("http://localhost:8000/custom-application", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

@@ -121,7 +121,7 @@ export default function LocalApplicationsPage() {
                             <div className="grid gap-3">
                                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                                     <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                                    <span className="text-sm">Local Flask server running on <code className="px-1 py-0.5 bg-muted rounded text-xs">localhost:3001</code></span>
+                                    <span className="text-sm">Local Flask server running on <code className="px-1 py-0.5 bg-muted rounded text-xs">localhost:8000</code></span>
                                 </div>
                                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                                     <CheckCircleIcon className="w-4 h-4 text-green-600" />
