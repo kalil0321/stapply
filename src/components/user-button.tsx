@@ -32,7 +32,7 @@ export function UserButton({
 }: {
     variant?: "sidebar" | "dropdown";
 }) {
-    const { customer, openBillingPortal } = useCustomer();
+    const { customer, openBillingPortal, isLoading:isCustomerLoading } = useCustomer();
     const router = useRouter();
     const { theme, setTheme } = useTheme();
     const { data: session, isPending, error, refetch } = useSession();
@@ -264,24 +264,6 @@ export function UserButton({
                         <HeartIcon className="size-4 mr-2" />
                         Saved Jobs
                     </Button>
-
-                    {/* <Button
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => {
-                            router.push("/notifications");
-                            setIsDialogOpen(false);
-                        }}
-                    >
-                        <BellIcon className="size-4 mr-2" />
-                        Notifications
-                        <Badge
-                            variant="destructive"
-                            className="ml-auto h-4 w-4 p-0 text-xs"
-                        >
-                            3
-                        </Badge>
-                    </Button> */}
 
                     <div className="border-t pt-2 space-y-2">
                         <Button
