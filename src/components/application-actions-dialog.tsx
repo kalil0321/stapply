@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
     BriefcaseIcon,
     LinkIcon,
@@ -193,10 +192,10 @@ export function ApplicationActionsDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <BriefcaseIcon className="size-5" />
-                        Start a new application
+                        New application
                     </DialogTitle>
                     <DialogDescription>
-                        Add a job to your tracker or trigger a local automation
+                        Add a job to your tracker or trigger an automation
                         to apply for you.
                     </DialogDescription>
                 </DialogHeader>
@@ -271,47 +270,11 @@ export function ApplicationActionsDialog({
                                 className="min-h-[120px]"
                             />
                             <p className="text-xs text-muted-foreground">
-                                Instructions will be passed directly to your local
-                                automation server.
+                                Instructions will be passed directly to the agent.
                             </p>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="flex items-center justify-between rounded-lg border p-3">
-                                <div className="space-y-1">
-                                    <Label className="text-xs uppercase text-muted-foreground">
-                                        Headless mode
-                                    </Label>
-                                    <p className="text-xs text-muted-foreground">
-                                        Run the automation without opening a
-                                        visible browser window.
-                                    </p>
-                                </div>
-                                <Switch
-                                    checked={runHeadless}
-                                    onCheckedChange={setRunHeadless}
-                                    disabled={creating || triggering}
-                                />
-                            </div>
-                            <div className="rounded-lg border p-3">
-                                <Label htmlFor="custom-application-max-steps" className="text-xs uppercase text-muted-foreground">
-                                    Max steps
-                                </Label>
-                                <Input
-                                    id="custom-application-max-steps"
-                                    type="number"
-                                    min={1}
-                                    value={maxSteps}
-                                    onChange={(e) => setMaxSteps(e.target.value)}
-                                    disabled={creating || triggering}
-                                    className="mt-2"
-                                />
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    Limit how many actions the automation can
-                                    take (default 100).
-                                </p>
-                            </div>
-                        </div>
+                        {/* // TODO: add secrets handling, allow user also to upload cookies or whatever if they know what they're doing */}
                     </TabsContent>
                 </Tabs>
 
