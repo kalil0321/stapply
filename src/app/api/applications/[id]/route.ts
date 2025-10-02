@@ -85,6 +85,7 @@ export async function GET(
         const isServerApplication = application.taskId?.startsWith("stapply-");
 
         if (isServerApplication) {
+            //TODO: implement the proper logic for this
             // Handle server applications - check status via local server API
             try {
                 const serverResponse = await fetch(`http://localhost:3001/task-status/${application.taskId}`, {

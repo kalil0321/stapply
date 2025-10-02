@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useCustomer } from "autumn-js/react";
 
 const jobTypes = [
     "an internship",
@@ -31,6 +32,8 @@ export default function Page() {
     const [value, setValue] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isLiveSearchEnabled, setIsLiveSearchEnabled] = useState(false);
+    const router = useRouter();
+    const { customer, allowed } = useCustomer();
 
     const createSearchMutation = useMutation({
         mutationFn: async (query: string) => {
@@ -40,12 +43,15 @@ export default function Page() {
                 body: JSON.stringify({ query }),
             });
             if (!response.ok) {
-                throw new Error("Failed to create search");
+                const errorData = await response.json().catch(() => ({}));
+                if (response.status === 401 && errorData.error?.includes("No credits left")) {
+                    throw new Error("No remaining searches. Please upgrade your plan to perform searches.");
+                }
+                throw new Error(errorData.error || "Failed to create search");
             }
             return response.json();
         },
     });
-    const router = useRouter();
 
     const handleSuggestionClick = (suggestion: string) => {
         console.log("Suggestion clicked:", suggestion);
@@ -54,6 +60,12 @@ export default function Page() {
 
     const handleSend = async () => {
         if (!value.trim()) return;
+
+        // Check customer permissions before searching
+        if (!allowed({ featureId: "search" })) {
+            toast.error("No remaining searches. Please upgrade your plan to perform searches.");
+            return;
+        }
 
         setIsLoading(true);
         try {
@@ -66,19 +78,25 @@ export default function Page() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ query: value }),
                 });
-                
+
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
+                    if (response.status === 401 && errorData.error?.includes("No credits left")) {
+                        throw new Error("No remaining searches. Please upgrade your plan to perform searches.");
+                    }
+                    if (response.status === 429) {
+                        throw new Error("Too many concurrent searches. Please wait for one to finish.");
+                    }
                     const errorMessage = errorData.error || "Failed to create live search";
                     throw new Error(errorMessage);
                 }
-                
+
                 const data = await response.json();
                 const taskId = data.id;
-                
+
                 setIsLoading(false);
                 console.log("Live search task ID:", taskId);
-                
+
                 // Redirect to live search page
                 router.push(`/live-search/${taskId}?q=${encodeURIComponent(value)}`);
                 setValue("");

@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { SavedJob } from "@/lib/types";
 import { JobCard } from "./job-card";
+import { toast } from "sonner";
+import { useCustomer } from "autumn-js/react";
 
 interface ApplicationSheetProps {
     isOpen: boolean;
@@ -54,6 +56,7 @@ export function ApplicationSheet({
     isLocal,
 }: ApplicationSheetProps) {
     const router = useRouter();
+    const { customer, allowed } = useCustomer();
     const [applying, setApplying] = useState(false);
     const [applicationError, setApplicationError] = useState<string | null>(null);
     const [instructions, setInstructions] = useState("");
@@ -128,6 +131,12 @@ export function ApplicationSheet({
 
     const handleApply = async () => {
         if (!savedJob?.jobId) return;
+
+        // Check customer permissions before applying
+        if (!allowed({ featureId: "application" })) {
+            toast.error("No remaining applications. Please upgrade your plan to apply to jobs.");
+            return;
+        }
 
         setApplying(true);
         setApplicationError(null);
@@ -283,7 +292,7 @@ export function ApplicationSheet({
                                 Instructions
                             </TabsTrigger>
                         </TabsList>
-                        
+
                         <TabsContent value="profile" className="space-y-4 mt-4">
                             {/* Profile Completeness Status */}
                             {!profile || Object.keys(profile).length === 0 ? (
@@ -309,13 +318,12 @@ export function ApplicationSheet({
                                 </div>
                             ) : (
                                 <div
-                                    className={`rounded-lg px-4 pb-4 transition-colors ${
-                                        criticalMissing.length > 0
+                                    className={`rounded-lg px-4 pb-4 transition-colors ${criticalMissing.length > 0
                                             ? "bg-red-50/50 dark:bg-red-900/10"
                                             : hasAllRecommended
-                                            ? "bg-green-50/50 dark:bg-green-900/10"
-                                            : "bg-amber-50/50 dark:bg-amber-900/10"
-                                    }`}
+                                                ? "bg-green-50/50 dark:bg-green-900/10"
+                                                : "bg-amber-50/50 dark:bg-amber-900/10"
+                                        }`}
                                 >
                                     <div className="flex items-center gap-3 mb-3">
                                         {isProfileComplete && hasAllRecommended ? (
@@ -387,26 +395,26 @@ export function ApplicationSheet({
                                             )}
                                             {(criticalMissing.length > 0 ||
                                                 recommendedMissing.length > 0) && (
-                                                <Button
-                                                    variant={
-                                                        criticalMissing.length > 0
-                                                            ? "default"
-                                                            : "outline"
-                                                    }
-                                                    size="sm"
-                                                    className="w-full"
-                                                    onClick={() => {
-                                                        onOpenChange(false);
-                                                        router.push(
-                                                            "/profile?update=true"
-                                                        );
-                                                    }}
-                                                >
-                                                    {criticalMissing.length > 0
-                                                        ? "Complete Required Information"
-                                                        : "Improve Your Profile"}
-                                                </Button>
-                                            )}
+                                                    <Button
+                                                        variant={
+                                                            criticalMissing.length > 0
+                                                                ? "default"
+                                                                : "outline"
+                                                        }
+                                                        size="sm"
+                                                        className="w-full"
+                                                        onClick={() => {
+                                                            onOpenChange(false);
+                                                            router.push(
+                                                                "/profile?update=true"
+                                                            );
+                                                        }}
+                                                    >
+                                                        {criticalMissing.length > 0
+                                                            ? "Complete Required Information"
+                                                            : "Improve Your Profile"}
+                                                    </Button>
+                                                )}
                                         </div>
                                     )}
                                 </div>
@@ -426,7 +434,7 @@ export function ApplicationSheet({
                                             </span>
                                             <p className="font-medium mt-1">
                                                 {profile?.firstName &&
-                                                profile?.lastName
+                                                    profile?.lastName
                                                     ? `${profile.firstName} ${profile.lastName}`
                                                     : "Not provided"}
                                             </p>
@@ -624,8 +632,8 @@ export function ApplicationSheet({
                                                 {applicationError}
                                             </p>
                                             <div className="flex gap-2 pt-1">
-                                                <Button 
-                                                    variant="outline" 
+                                                <Button
+                                                    variant="outline"
                                                     size="sm"
                                                     onClick={() => setApplicationError(null)}
                                                     className="h-8 text-xs"
@@ -633,8 +641,8 @@ export function ApplicationSheet({
                                                     Dismiss
                                                 </Button>
                                                 {applicationError.includes("local automation server") && (
-                                                    <Button 
-                                                        variant="outline" 
+                                                    <Button
+                                                        variant="outline"
                                                         size="sm"
                                                         onClick={handleApply}
                                                         disabled={applying}
@@ -644,8 +652,8 @@ export function ApplicationSheet({
                                                     </Button>
                                                 )}
                                                 {(applicationError.includes("profile") || applicationError.includes("resume")) && (
-                                                    <Button 
-                                                        variant="outline" 
+                                                    <Button
+                                                        variant="outline"
                                                         size="sm"
                                                         onClick={() => {
                                                             onOpenChange(false);

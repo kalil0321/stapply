@@ -9,12 +9,24 @@ import { vectorSearch } from "@/app/actions/search/vector";
 import { combineResults } from "@/app/actions/search/combine";
 import { auth } from "@/lib/auth/helpers";
 import { emitSearchUpdate } from "@/lib/search-events";
+import { Autumn as autumn } from "autumn-js";
 
 export async function POST(req: NextRequest) {
     const { userId } = await auth();
 
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+
+
+    const { data } = await autumn.check({
+        customer_id: userId,
+        feature_id: "search",
+    });
+
+    if (!data?.allowed || data?.balance === 0) {
+        return NextResponse.json({ error: "No credits left" }, { status: 401 });
     }
 
     const { query } = await req.json();
@@ -175,6 +187,12 @@ export async function POST(req: NextRequest) {
                     .where(eq(searches.id, searchRecord.id));
 
                 await emitSearchUpdate(searchRecord.id);
+
+                await autumn.track({
+                    customer_id: userId,
+                    feature_id: "search",
+                    value: 1,
+                });
             } catch (searchError) {
                 console.error("Error in custom search:", searchError);
                 await db

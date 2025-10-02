@@ -5,6 +5,7 @@ import { db } from "@/db/drizzle";
 import { liveSearches } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { Autumn as autumn } from "autumn-js";
 
 export async function POST(req: NextRequest) {
     try {
@@ -12,6 +13,16 @@ export async function POST(req: NextRequest) {
 
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Check customer permissions
+        const { data } = await autumn.check({
+            customer_id: userId,
+            feature_id: "search",
+        });
+
+        if (!data?.allowed || data?.balance === 0) {
+            return NextResponse.json({ error: "No credits left" }, { status: 401 });
         }
 
         const { query } = await req.json();
@@ -82,6 +93,13 @@ export async function POST(req: NextRequest) {
             .returning();
 
         console.log("Live search record created:", JSON.stringify(liveSearchRecord, null, 2));
+
+        // Track the live search creation
+        await autumn.track({
+            customer_id: userId,
+            feature_id: "search",
+            value: 1,
+        });
 
         // Stream to frontend
         return NextResponse.json({

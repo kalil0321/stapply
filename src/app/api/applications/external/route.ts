@@ -4,12 +4,24 @@ import { db } from "@/db/drizzle";
 import { applications, jobs, profiles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { BrowserUseClient } from "browser-use-sdk";
+import { Autumn as autumn } from "autumn-js";
 
 // Create an application from a job URL
 export async function POST(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+
+    // TODO: determine how to handle hunter tier (unlimited credits?)
+    const { data } = await autumn.check({
+        customer_id: userId,
+        feature_id: "application",
+    });
+
+    if (!data?.allowed || data?.balance === 0) {
+        return NextResponse.json({ error: "No credits left" }, { status: 401 });
     }
 
     try {
@@ -248,6 +260,13 @@ Please use the provided user information to fill in any application forms automa
             .innerJoin(jobs, eq(applications.jobId, jobs.id))
             .where(eq(applications.id, newApplication.id))
             .limit(1);
+
+        // Track the application creation
+        await autumn.track({
+            customer_id: userId,
+            feature_id: "application",
+            value: 1,
+        });
 
         return NextResponse.json({
             application: applicationWithJob,

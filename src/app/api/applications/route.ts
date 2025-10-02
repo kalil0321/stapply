@@ -4,12 +4,22 @@ import { db } from "@/db/drizzle";
 import { applications, jobs, profiles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { BrowserUseClient } from "browser-use-sdk";
+import { Autumn as autumn } from "autumn-js";
 
 // Create a new application
 export async function POST(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data } = await autumn.check({
+        customer_id: userId,
+        feature_id: "application",
+    });
+
+    if (!data?.allowed || data?.balance === 0) {
+        return NextResponse.json({ error: "No credits left" }, { status: 401 });
     }
 
     try {
@@ -95,7 +105,7 @@ export async function POST(req: NextRequest) {
             const data = await response.json();
 
             // Store the application in the database
-            const [newApplication] = await db
+            await db
                 .insert(applications)
                 .values({
                     userId,
@@ -105,6 +115,12 @@ export async function POST(req: NextRequest) {
                 .returning();
 
             // console.log(`[Application ${jobId}] Application saved with ID: ${newApplication.id}`);
+
+            await autumn.track({
+                customer_id: userId,
+                feature_id: "application",
+                value: 1,
+            });
 
             return NextResponse.json({
                 live_url: data.live_url,
@@ -281,6 +297,12 @@ export async function POST(req: NextRequest) {
             .innerJoin(jobs, eq(applications.jobId, jobs.id))
             .where(eq(applications.id, newApplication.id))
             .limit(1);
+
+        await autumn.track({
+            customer_id: userId,
+            feature_id: "application",
+            value: 1,
+        });
 
         console.log(`[Application ${jobId}] Application process completed successfully`);
         return NextResponse.json({ application: applicationWithJob });

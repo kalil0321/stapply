@@ -19,6 +19,7 @@ import {
     PlusCircleIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useCustomer } from "autumn-js/react";
 
 interface AddApplicationDialogProps {
     open: boolean;
@@ -33,6 +34,7 @@ export function AddApplicationDialog({
 }: AddApplicationDialogProps) {
     const [jobUrl, setJobUrl] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const { customer } = useCustomer();
 
     const addApplicationMutation = useMutation({
         mutationFn: async (url: string) => {
@@ -44,6 +46,18 @@ export function AddApplicationDialog({
 
             if (!response.ok) {
                 const error = await response.json();
+                if (response.status === 401 && error.error?.includes("No credits left")) {
+                    throw new Error("No credits left. Please upgrade your plan to apply to jobs.");
+                }
+                if (response.status === 409) {
+                    throw new Error("You have already applied to this job");
+                }
+                if (response.status === 400 && error.error?.includes("profile")) {
+                    throw new Error("Profile incomplete. Please complete your profile first.");
+                }
+                if (response.status === 400 && error.error?.includes("resume")) {
+                    throw new Error("Resume not found. Please upload your resume first.");
+                }
                 throw new Error(error.error || "Failed to create application");
             }
 
@@ -92,6 +106,13 @@ export function AddApplicationDialog({
 
         if (!isValidUrl(url)) {
             toast.error("Please enter a valid URL");
+            return;
+        }
+
+        // Check customer permissions before creating application
+        const activeProducts = customer?.products?.filter(p => p.status === "active") || [];
+        if (activeProducts.length === 0) {
+            toast.error("No active subscription. Please upgrade your plan to apply to jobs.");
             return;
         }
 
