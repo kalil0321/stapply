@@ -272,32 +272,6 @@ export function UserButton({
                         variant="ghost"
                         className="w-full justify-start"
                         onClick={() => {
-                            switchTheme();
-                            setIsDialogOpen(false);
-                        }}
-                        disabled={isUserLoading}
-                    >
-                        {theme === "dark" ? (
-                            <SunIcon className="size-4 mr-2" />
-                        ) : (
-                            <MoonIcon className="size-4 mr-2" />
-                        )}
-                        Switch Theme
-                        <span className="ml-auto text-xs text-muted-foreground">
-                            {typeof navigator !== "undefined" &&
-                                navigator.platform.toLowerCase().includes("mac")
-                                ? "⌘\\"
-                                : "Ctrl\\"}
-                        </span>
-                        {isUserLoading && (
-                            <Skeleton className="ml-2 h-4 w-16 inline-block align-middle" />
-                        )}
-                    </Button>
-
-                    <Button
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => {
                             router.push("/applications");
                             setIsDialogOpen(false);
                         }}
@@ -337,6 +311,31 @@ export function UserButton({
                         >
                             <CreditCardIcon className="size-4 mr-2" />
                             Billing
+                            {isUserLoading && (
+                                <Skeleton className="ml-2 h-4 w-16 inline-block align-middle" />
+                            )}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className="w-full justify-start"
+                            onClick={() => {
+                                switchTheme();
+                                setIsDialogOpen(false);
+                            }}
+                            disabled={isUserLoading}
+                        >
+                            {theme === "dark" ? (
+                                <SunIcon className="size-4 mr-2" />
+                            ) : (
+                                <MoonIcon className="size-4 mr-2" />
+                            )}
+                            Switch Theme
+                            <span className="ml-auto text-xs text-muted-foreground">
+                                {typeof navigator !== "undefined" &&
+                                    navigator.platform.toLowerCase().includes("mac")
+                                    ? "⌘\\"
+                                    : "Ctrl\\"}
+                            </span>
                             {isUserLoading && (
                                 <Skeleton className="ml-2 h-4 w-16 inline-block align-middle" />
                             )}
