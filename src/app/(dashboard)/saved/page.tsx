@@ -197,9 +197,9 @@ export default function SavedJobsPage() {
                         {savedJobsList.map((savedJob) => (
                             <Card
                                 key={savedJob.id}
-                                className="group hover:shadow-sm transition-shadow w-full"
+                                className="group shadow-none hover:shadow-sm transition-shadow w-full"
                             >
-                                <CardContent className="px-4 w-full">
+                                <CardContent className="px-4 w-full shadow-none">
                                     <div className="flex items-start justify-between gap-4 w-full">
                                         <div className="flex-1 min-w-0 overflow-hidden">
                                             <div className="flex items-start gap-3 mb-3">
@@ -252,36 +252,13 @@ export default function SavedJobsPage() {
                                                                 ).toLocaleDateString()}
                                                             </span>
                                                         </div>
-                                                        {savedJob.job
-                                                            ?.employment_type && (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="text-xs flex-shrink-0"
-                                                            >
-                                                                {
-                                                                    savedJob.job
-                                                                        .employment_type
-                                                                }
-                                                            </Badge>
-                                                        )}
                                                     </div>
-
-                                                    {savedJob.notes && (
-                                                        <div className="mt-2 p-2 bg-muted/50 rounded text-xs overflow-hidden">
-                                                            <span className="font-medium">
-                                                                Notes:{" "}
-                                                            </span>
-                                                            <span className="break-words">
-                                                                {savedJob.notes}
-                                                            </span>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            {savedJob.jobId && process.env.NODE_ENV === "development" && (
+                                            {savedJob.jobId && (
                                                 <Button
                                                     variant="default"
                                                     size="sm"
