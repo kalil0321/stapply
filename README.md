@@ -1,4 +1,6 @@
-# 🚀 Stapply – AI Job Search Engine
+# Stapply, a job search engine that goes beyond search
+
+Stapply is not another job board. It helps find the best jobs and applies on your behalf.
 
 [Demo video](https://drive.google.com/file/d/1xxb7QsQi35GL3bK3BJhIsxCJNash39K5/view?usp=sharing)
 
