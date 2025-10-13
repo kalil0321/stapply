@@ -26,6 +26,10 @@ The local server handles the browser-use task and resume upload. The browser is 
 
 ---
 
+## Cloud version
+
+I plan to have a cloud version, [join the waitlist](https://stapply.ai/waitlist)
+
 ## ⚙️ Setup
 
 Create a `.env` file using `env.example` as a template.  
