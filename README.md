@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/stapply_white.svg" width="120" alt="Stapply logo">
+</p>
+
 # Stapply, a job search engine that goes beyond search
 
 Stapply is not another job board. It helps find the best jobs and applies on your behalf.
