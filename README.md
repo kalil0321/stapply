@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/stapply_white.svg" width="120" alt="Stapply logo">
+  <img src="assets/stapply.svg" alt="Stapply logo">
 </p>
 
 # Stapply, a job search engine that goes beyond search
