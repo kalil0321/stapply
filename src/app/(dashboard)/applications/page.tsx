@@ -167,24 +167,28 @@ export default function ApplicationsPage() {
 
     if (error) {
         return (
-            <div className="flex flex-col gap-4 p-6">
+            <div className="flex flex-col gap-4 p-6 h-full">
                 <div className="flex items-end justify-between border-b border-border pb-4">
                     <div>
                         <h1 className="text-xl font-medium">Applications</h1>
                     </div>
                 </div>
-                <div className="text-center py-12">
-                    <AlertCircleIcon className="size-12 text-red-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">
-                        Error Loading Applications
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                        There was an error loading your applications. Please try
-                        again.
-                    </p>
-                    <Button onClick={() => window.location.reload()}>
-                        Try Again
-                    </Button>
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center space-y-4">
+                        <AlertCircleIcon className="size-12 text-red-500 mx-auto" />
+                        <div className="space-y-2">
+                            <h3 className="text-lg font-medium">
+                                Error Loading Applications
+                            </h3>
+                            <p className="text-muted-foreground">
+                                There was an error loading your applications. Please try
+                                again.
+                            </p>
+                        </div>
+                        <Button onClick={() => window.location.reload()}>
+                            Try Again
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
@@ -510,31 +514,35 @@ export default function ApplicationsPage() {
 
                 {/* Empty State */}
                 {transformedApplications.length === 0 && (
-                    <div className="text-center py-12">
-                        <BriefcaseIcon className="size-12 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-medium mb-2">
-                            No Applications Yet
-                        </h3>
-                        <p className="text-muted-foreground mb-6">
-                            Start tracking your job applications to see them
-                            here
-                        </p>
-                        <div className="flex items-center justify-center gap-3">
-                            <Button
-                                variant="outline"
-                                className="gap-2"
-                                onClick={handleApplyToSaved}
-                            >
-                                <BookmarkIcon className="size-4" />
-                                Apply to Saved Jobs
-                            </Button>
-                            <Button
-                                className="gap-2"
-                                onClick={() => setIsDialogOpen(true)}
-                            >
-                                <PlusCircleIcon className="size-4" />
-                                Add Your First Application
-                            </Button>
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center space-y-4">
+                            <BriefcaseIcon className="size-12 text-muted-foreground mx-auto" />
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-medium">
+                                    No Applications Yet
+                                </h3>
+                                <p className="text-muted-foreground">
+                                    Start tracking your job applications to see them
+                                    here
+                                </p>
+                            </div>
+                            <div className="flex items-center justify-center gap-3 pt-2">
+                                <Button
+                                    variant="outline"
+                                    className="gap-2"
+                                    onClick={handleApplyToSaved}
+                                >
+                                    <BookmarkIcon className="size-4" />
+                                    Apply to Saved Jobs
+                                </Button>
+                                <Button
+                                    className="gap-2"
+                                    onClick={() => setIsDialogOpen(true)}
+                                >
+                                    <PlusCircleIcon className="size-4" />
+                                    Add Your First Application
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 )}

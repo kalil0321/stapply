@@ -171,29 +171,33 @@ export default function SavedJobsPage() {
 
             {/* Empty State */}
             {savedJobs.length === 0 && (
-                <div className="text-center py-12">
-                    <BookmarkIcon className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
-                    <h3 className="text-lg font-medium mb-2">
-                        No saved jobs yet
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                        Start saving jobs from your search results or add jobs
-                        from external sources
-                    </p>
-                    <div className="flex items-center justify-center gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowAddJobDialog(true)}
-                        >
-                            <PlusIcon className="w-4 h-4 mr-2" />
-                            Add Job
-                        </Button>
-                        <Button asChild>
-                            <Link href="/search">
-                                <SearchIcon className="w-4 h-4 mr-2" />
-                                Search Jobs
-                            </Link>
-                        </Button>
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center space-y-4">
+                        <BookmarkIcon className="w-12 h-12 mx-auto text-muted-foreground/30" />
+                        <div className="space-y-2">
+                            <h3 className="text-lg font-medium">
+                                No saved jobs yet
+                            </h3>
+                            <p className="text-muted-foreground">
+                                Start saving jobs from your search results or add jobs
+                                from external sources
+                            </p>
+                        </div>
+                        <div className="flex items-center justify-center gap-2 pt-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowAddJobDialog(true)}
+                            >
+                                <PlusIcon className="w-4 h-4 mr-2" />
+                                Add Job
+                            </Button>
+                            <Button asChild>
+                                <Link href="/search">
+                                    <SearchIcon className="w-4 h-4 mr-2" />
+                                    Search Jobs
+                                </Link>
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}
