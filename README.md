@@ -18,6 +18,11 @@ Stapply is not another job board. It helps find the best jobs and applies on you
 Stapply is an **AI-powered job search engine**.  
 It helps you find roles that truly match your criteria, and with **Browser Use** it can even apply to them automatically.
 
+
+
+## Job data
+---
+Get access to a dataset of thousands of jobs [here](https://storage.stapply.ai/jobs.csv)(https://storage.stapply.ai/jobs.csv).
 ---
 
 ## 🔎 Search Pipeline
