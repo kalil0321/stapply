@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="assets/stapply.svg" alt="Stapply logo">
+  <picture>
+    <source srcset="assets/stapply.svg" media="(prefers-color-scheme: light)">
+    <source srcset="assets/stapply_black.svg" media="(prefers-color-scheme: dark)">
+    <img src="assets/stapply.svg" alt="Stapply logo">
+  </picture>
 </p>
 
 # Stapply, a job search engine that goes beyond search
@@ -8,7 +12,7 @@ Stapply is not another job board. It helps find the best jobs and applies on you
 
 [Demo video](https://drive.google.com/file/d/1xxb7QsQi35GL3bK3BJhIsxCJNash39K5/view?usp=sharing)
 
-![Stapply Demo](demo.gif)
+![Stapply Demo](assets/demo.gif)
 ---
 
 Stapply is an **AI-powered job search engine**.  
