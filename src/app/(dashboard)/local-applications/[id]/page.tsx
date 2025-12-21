@@ -231,7 +231,7 @@ export default function LocalApplicationPage() {
                         The job you're looking for doesn't exist or has been removed.
                     </p>
                     <Button variant="outline" asChild>
-                        <Link href="/search">
+                        <Link href="/jobs">
                             <ArrowLeftIcon className="w-4 h-4 mr-2" />
                             Back to Search
                         </Link>
@@ -249,7 +249,7 @@ export default function LocalApplicationPage() {
             <div className="flex items-center justify-between border-b border-border p-4">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="sm" asChild>
-                        <Link href="/search">
+                        <Link href="/jobs">
                             <ArrowLeftIcon className="w-4 h-4 mr-2" />
                             Back
                         </Link>
@@ -550,7 +550,7 @@ function ApplicationResults({ result }: { result: LocalApplicationResponse }) {
                         </Link>
                     </Button>
                     <Button variant="outline" asChild>
-                        <Link href="/search">
+                        <Link href="/jobs">
                             Find More Jobs
                         </Link>
                     </Button>

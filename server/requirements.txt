@@ -1,9 +1,9 @@
 browser-use
 flask
+flask-cors
 playwright
 playwright-stealth
 aiohttp
-steel-sdk
 requests
 pydantic
 python-dotenv

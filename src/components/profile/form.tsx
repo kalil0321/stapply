@@ -36,8 +36,10 @@ interface FormValues {
     otherUrl?: string;
     willingToRelocate?: boolean;
     requiresEuVisa?: boolean;
+    requiresUsVisa?: boolean;
     requiresUkVisa?: boolean;
     requiresChVisa?: boolean;
+    requiresCaVisa?: boolean;
     requiresOtherVisa?: boolean;
     otherVisaDetails?: string;
     resumeUrl?: string;

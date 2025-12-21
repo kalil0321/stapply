@@ -17,6 +17,13 @@ interface ProfileData {
     education?: any[];
     languages?: any[];
     resumeUrl?: string;
+    requiresEuVisa?: boolean;
+    requiresUsVisa?: boolean;
+    requiresUkVisa?: boolean;
+    requiresChVisa?: boolean;
+    requiresCaVisa?: boolean;
+    requiresOtherVisa?: boolean;
+    otherVisaDetails?: string;
 }
 
 async function fetchProfile() {
@@ -234,6 +241,55 @@ export function ProfileDisplay() {
                             </span>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {(profile.requiresEuVisa ||
+                profile.requiresUsVisa ||
+                profile.requiresUkVisa ||
+                profile.requiresChVisa ||
+                profile.requiresCaVisa ||
+                profile.requiresOtherVisa ||
+                profile.otherVisaDetails) && (
+                <div>
+                    <h3 className="font-medium mb-1">Visa Preferences</h3>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                        {profile.requiresEuVisa && (
+                            <span className="px-2 py-1 bg-muted rounded">
+                                EU visa
+                            </span>
+                        )}
+                        {profile.requiresUsVisa && (
+                            <span className="px-2 py-1 bg-muted rounded">
+                                US visa
+                            </span>
+                        )}
+                        {profile.requiresUkVisa && (
+                            <span className="px-2 py-1 bg-muted rounded">
+                                UK visa
+                            </span>
+                        )}
+                        {profile.requiresChVisa && (
+                            <span className="px-2 py-1 bg-muted rounded">
+                                CH visa
+                            </span>
+                        )}
+                        {profile.requiresCaVisa && (
+                            <span className="px-2 py-1 bg-muted rounded">
+                                Canada visa
+                            </span>
+                        )}
+                        {profile.requiresOtherVisa && (
+                            <span className="px-2 py-1 bg-muted rounded">
+                                Other visa
+                            </span>
+                        )}
+                    </div>
+                    {profile.otherVisaDetails && (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            {profile.otherVisaDetails}
+                        </p>
+                    )}
                 </div>
             )}
 

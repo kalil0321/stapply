@@ -13,9 +13,10 @@ import json
 import base64
 import io
 import time
+from urllib.parse import urlparse, urljoin
 from PIL import Image
 from pydantic import BaseModel, Field
-from steel import Steel
+# Using local browser automation only - no external services
 
 load_dotenv()
 
@@ -47,31 +48,23 @@ class PlaywrightFileUploadAction(BaseModel):
     selector: str = Field(..., description="CSS selector for the file input field")
 
 
-class PlaywrightComboboxAction(BaseModel):
-    """Parameters for Playwright combobox action."""
-
-    selector: str = Field(
-        ..., description="CSS selector for the combobox input element"
-    )
-    value: str = Field(..., description="Value to type and select from combobox")
-
-
 async def kill_existing_chrome_instances():
     """
     Kill any existing Chrome instances with remote debugging to avoid conflicts.
     """
     try:
         import subprocess
+
         # Find and kill existing Chrome processes with remote debugging
-        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
-        for line in result.stdout.split('\n'):
-            if 'remote-debugging-port' in line and 'Google Chrome' in line:
+        result = subprocess.run(["ps", "aux"], capture_output=True, text=True)
+        for line in result.stdout.split("\n"):
+            if "remote-debugging-port" in line and "Google Chrome" in line:
                 # Extract PID (second column)
                 parts = line.split()
                 if len(parts) > 1:
                     try:
                         pid = int(parts[1])
-                        subprocess.run(['kill', str(pid)], capture_output=True)
+                        subprocess.run(["kill", str(pid)], capture_output=True)
                         print(f"✅ Killed existing Chrome instance (PID: {pid})")
                     except (ValueError, subprocess.SubprocessError):
                         continue
@@ -80,19 +73,22 @@ async def kill_existing_chrome_instances():
     except Exception as e:
         print(f"⚠️  Error killing existing Chrome instances: {e}")
 
+
 def find_available_port(start_port: int = 9222) -> int:
     """
     Find an available port starting from start_port.
     """
     import socket
+
     for port in range(start_port, start_port + 100):  # Try 100 ports
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('localhost', port))
+                s.bind(("localhost", port))
                 return port
         except OSError:
             continue
     raise RuntimeError("❌ No available ports found for Chrome debugging")
+
 
 async def start_chrome_with_debug_port(task_id: str = None, port: int = None):
     """
@@ -101,18 +97,15 @@ async def start_chrome_with_debug_port(task_id: str = None, port: int = None):
     """
     # Kill any existing Chrome instances first
     await kill_existing_chrome_instances()
-    
+
     # Find an available port if not specified
     if port is None:
         port = find_available_port()
-    
+
     # Track the port for this task
     if task_id:
-        task_chrome_instances[task_id] = {
-            'port': port,
-            'status': 'starting'
-        }
-    
+        task_chrome_instances[task_id] = {"port": port, "status": "starting"}
+
     # Create temporary directory for Chrome user data
     user_data_dir = tempfile.mkdtemp(prefix="chrome_cdp_")
 
@@ -159,7 +152,7 @@ async def start_chrome_with_debug_port(task_id: str = None, port: int = None):
         "--disable-dev-shm-usage",  # Prevent shared memory issues
         "--no-sandbox",  # Required for headless mode in some environments
         "about:blank",  # Start with blank page
-        "--headless=new", # Use new headless mode
+        "--headless=new",  # Use new headless mode
     ]
 
     # Start Chrome process
@@ -191,8 +184,8 @@ async def start_chrome_with_debug_port(task_id: str = None, port: int = None):
 
     # Update task status
     if task_id:
-        task_chrome_instances[task_id]['status'] = 'running'
-        task_chrome_instances[task_id]['process'] = process
+        task_chrome_instances[task_id]["status"] = "running"
+        task_chrome_instances[task_id]["process"] = process
 
     return process, port
 
@@ -201,11 +194,22 @@ async def connect_playwright_to_cdp(cdp_url: str):
     """
     Connect Playwright to the same Chrome instance Browser-Use is using.
     This enables custom actions to use Playwright functions.
+    Apply stealth to all contexts to avoid detection.
     """
     global playwright_browser, playwright_page
 
     playwright = await async_playwright().start()
     playwright_browser = await playwright.chromium.connect_over_cdp(cdp_url)
+
+    # Apply stealth to all existing contexts
+    stealth = Stealth()
+    if playwright_browser and playwright_browser.contexts:
+        for context in playwright_browser.contexts:
+            try:
+                await stealth.apply_stealth_async(context)
+                print(f"✅ Applied stealth to existing context")
+            except Exception as e:
+                print(f"⚠️  Failed to apply stealth to context: {e}")
 
     # Get or create a page
     if (
@@ -216,7 +220,6 @@ async def connect_playwright_to_cdp(cdp_url: str):
         playwright_page = playwright_browser.contexts[0].pages[0]
     elif playwright_browser:
         context = await playwright_browser.new_context()
-        stealth = Stealth()
         await stealth.apply_stealth_async(context)
         playwright_page = await context.new_page()
 
@@ -614,25 +617,35 @@ async def playwright_file_upload(
             try:
                 # Check if page has meaningful content before taking screenshot
                 html_content = await playwright_page.content()
-                body_content = await playwright_page.evaluate("() => document.body.innerText.trim()")
-                
-                if body_content and len(body_content) > 50:  # Only screenshot if page has substantial content
+                body_content = await playwright_page.evaluate(
+                    "() => document.body.innerText.trim()"
+                )
+
+                if (
+                    body_content and len(body_content) > 50
+                ):  # Only screenshot if page has substantial content
                     screenshot_path = os.path.join(os.getcwd(), "screenshots")
                     os.makedirs(screenshot_path, exist_ok=True)
-                    
+
                     failed_screenshot = os.path.join(
                         screenshot_path, "file_input_not_found.png"
                     )
-                    await playwright_page.screenshot(path=failed_screenshot, full_page=True)
+                    await playwright_page.screenshot(
+                        path=failed_screenshot, full_page=True
+                    )
                     print(f"✅ Failed search screenshot saved: {failed_screenshot}")
 
                     # Save HTML when search fails
-                    failed_html = os.path.join(screenshot_path, "file_input_not_found.html")
+                    failed_html = os.path.join(
+                        screenshot_path, "file_input_not_found.html"
+                    )
                     with open(failed_html, "w", encoding="utf-8") as f:
                         f.write(html_content)
                     print(f"✅ Failed search HTML saved: {failed_html}")
                 else:
-                    print("⚠️  Skipping screenshot - page appears to be blank or have minimal content")
+                    print(
+                        "⚠️  Skipping screenshot - page appears to be blank or have minimal content"
+                    )
 
             except Exception as screenshot_error:
                 print(
@@ -703,307 +716,124 @@ async def playwright_file_upload(
         return ActionResult(error=error_msg)
 
 
-@tools.registry.action(
-    "Select an option from a combobox using Playwright's interaction capabilities. Use this when you need to type and select an option from an autocomplete/combobox input field.",
-    param_model=PlaywrightComboboxAction,
-)
-async def playwright_combobox_select(
-    params: PlaywrightComboboxAction, browser_session: BrowserSession
-):
-    """
-    Custom action that uses Playwright to interact with combobox/autocomplete elements.
-    """
-    try:
-        print(f"Selecting combobox option: {params.value}")
-        print(f"Selector: {params.selector}")
-
-        if not playwright_page:
-            print("❌ Playwright not connected. Run setup first.")
-            return ActionResult(error="Playwright not connected. Run setup first.")
-
-        print("✅ Playwright page is connected")
-
-        # Wait for the page to be ready
-        print("⏳ Waiting for page to be ready...")
-        try:
-            await playwright_page.wait_for_load_state("networkidle", timeout=10000)
-            print("✅ Page is ready (networkidle)")
-        except Exception as networkidle_error:
-            print(f"⚠️  NetworkIdle timeout: {networkidle_error}")
-            try:
-                await playwright_page.wait_for_load_state(
-                    "domcontentloaded", timeout=5000
-                )
-                print("✅ Page is ready (domcontentloaded)")
-            except Exception as dom_error:
-                print(f"⚠️  DOM load also failed: {dom_error}")
-
-        # Find the combobox input element
-        print(f"🔍 Looking for combobox input element with selector: {params.selector}")
-        combobox_input = None
-
-        try:
-            # Try to find the combobox input element
-            combobox_input = await playwright_page.wait_for_selector(
-                params.selector, timeout=5000
-            )
-            if not combobox_input:
-                print(f"❌ Combobox input element not found with selector: {params.selector}")
-                _ = input("Press Enter to continue...")
-                return ActionResult(
-                    error=f"Combobox input element not found with selector: {params.selector}"
-                )
-        except Exception as selector_error:
-            print(f"❌ Failed to find combobox input element: {selector_error}")
-            _ = input("Press Enter to continue...")
-            return ActionResult(
-                error=f"Combobox input element not found with selector: {params.selector}"
-            )
-
-        print("✅ Combobox input element found")
-
-        # Interact with the combobox
-        print(f"🔍 Interacting with combobox for value: {params.value}")
-        _ = input("Press Enter to continue...")
-        try:
-            # First, click on the input to focus it
-            print("🖱️  Clicking on combobox input to focus...")
-            await combobox_input.click()
-            await asyncio.sleep(0.5)
-
-            # Clear any existing text
-            print("🗑️  Clearing existing text...")
-            await combobox_input.fill("")
-            await asyncio.sleep(0.3)
-
-            # Type the value to trigger autocomplete
-            print(f"⌨️  Typing '{params.value}' to trigger autocomplete...")
-            await combobox_input.type(
-                params.value, delay=100
-            )  # Add delay between keystrokes
-
-            _ = input("Press Enter to continue...")
-
-            # Wait for autocomplete suggestions to appear with multiple checks
-            print("⏳ Waiting for dropdown options to appear...")
-            dropdown_appeared = False
-            for wait_attempt in range(3):  # Try up to 3 times
-                await asyncio.sleep(0.5 + wait_attempt * 0.5)  # Progressive waiting
-                try:
-                    # Check if any dropdown options are visible
-                    quick_check = await playwright_page.query_selector(
-                        '[role="listbox"] [role="option"]'
-                    )
-                    if quick_check:
-                        print(f"✅ Dropdown appeared after {wait_attempt + 1} attempts")
-                        dropdown_appeared = True
-                        break
-                except Exception:
-                    pass
-
-            if not dropdown_appeared:
-                print("⚠️  Dropdown may not have appeared, continuing anyway...")
-                await asyncio.sleep(0.5)  # Final wait
-
-            # Look for dropdown/listbox options that appear
-            print("🔍 Looking for autocomplete dropdown options...")
-
-            # First, check if floating UI portal exists
-            try:
-                floating_portal = await playwright_page.query_selector(
-                    "[data-floating-ui-portal]"
-                )
-                if floating_portal:
-                    print("✅ Detected floating UI portal")
-                else:
-                    print("⚠️  No floating UI portal detected")
-            except Exception as portal_check_error:
-                print(f"⚠️  Error checking for floating UI portal: {portal_check_error}")
-
-            # Try multiple selectors for dropdown options (prioritizing floating UI structure)
-            dropdown_selectors = [
-                '[data-floating-ui-portal] [role="listbox"] [role="option"]',  # Floating UI structure
-                '[role="listbox"] [role="option"]',  # Generic listbox options
-                '[id^="floating-ui-"] [role="option"]',  # Floating UI options by ID pattern
-                '[class*="_result_"] [role="option"]',  # Result container options
-                '[class*="_floatingContainer_"] [role="option"]',  # Floating container options
-                '[role="listbox"] div[role="option"]',  # Div-based options in listbox
-                '[aria-orientation="vertical"] [role="option"]',  # Vertical orientation listbox
-                '[role="listbox"] li',
-                '[aria-expanded="true"] + * [role="option"]',
-                '[aria-expanded="true"] + * li',
-                '.dropdown [role="option"]',
-                ".dropdown li",
-                '[data-testid*="option"]',
-                '[class*="option"]',
-                "ul li",
-                ".menu-item",
-                '[class*="dropdown"] [class*="item"]',
-            ]
-
-            option_found = False
-            for selector in dropdown_selectors:
-                try:
-                    print(f"  🔍 Trying dropdown selector: {selector}")
-                    await playwright_page.wait_for_selector(selector, timeout=2000)
-                    options = await playwright_page.query_selector_all(selector)
-                    print(
-                        f"  📋 Found {len(options)} options with selector: {selector}"
-                    )
-
-                    # Look for matching option
-                    for i, option in enumerate(options):
-                        try:
-                            option_text = await option.text_content()
-                            option_value = await option.get_attribute("value")
-                            option_id = await option.get_attribute("id")
-                            is_selected = await option.get_attribute("aria-selected")
-                            print(
-                                f"    Option {i + 1}: text='{option_text}', value='{option_value}', id='{option_id}', selected='{is_selected}'"
-                            )
-
-                            # Enhanced matching logic
-                            text_match = option_text and (
-                                params.value.lower() in option_text.lower()
-                                or option_text.lower().startswith(params.value.lower())
-                                or option_text.lower() == params.value.lower()
-                            )
-                            value_match = (
-                                option_value
-                                and params.value.lower() == option_value.lower()
-                            )
-
-                            if text_match or value_match:
-                                print(
-                                    f"  ✅ Found matching option: '{option_text}' (text_match: {text_match}, value_match: {value_match})"
-                                )
-
-                                # Scroll option into view if needed
-                                try:
-                                    await option.scroll_into_view_if_needed()
-                                except Exception:
-                                    pass  # Ignore scroll errors
-
-                                # Click the option
-                                await option.click()
-                                option_found = True
-                                break
-                        except Exception as option_error:
-                            print(
-                                f"    ⚠️  Error processing option {i + 1}: {option_error}"
-                            )
-                            continue
-
-                    if option_found:
-                        break
-
-                except Exception as dropdown_error:
-                    print(f"  ⚠️  Dropdown selector failed: {dropdown_error}")
-                    continue
-
-            if not option_found:
-                print(
-                    "⚠️  No matching dropdown option found, trying keyboard navigation..."
-                )
-                # Try using keyboard navigation (Arrow Down + Enter)
-                try:
-                    await playwright_page.keyboard.press("ArrowDown")
-                    await asyncio.sleep(0.3)
-                    await playwright_page.keyboard.press("Enter")
-                    print("✅ Used keyboard navigation to select option")
-                    option_found = True
-                except Exception as keyboard_error:
-                    print(f"❌ Keyboard navigation failed: {keyboard_error}")
-
-            # Wait a moment for any change events to process
-            await asyncio.sleep(0.5)
-
-            # Verify the selection
-            try:
-                final_value = await combobox_input.input_value()
-                print(f"📋 Final combobox value: {final_value}")
-
-                if final_value and (
-                    params.value.lower() in final_value.lower()
-                    or final_value.lower() in params.value.lower()
-                ):
-                    return ActionResult(
-                        extracted_content=f"Combobox option selected successfully: {final_value}"
-                    )
-                elif option_found:
-                    return ActionResult(
-                        extracted_content=f"Combobox option selection completed for: {params.value}"
-                    )
-                else:
-                    return ActionResult(
-                        error=f"No matching option found for: {params.value}"
-                    )
-
-            except Exception as verification_error:
-                print(f"⚠️  Verification failed: {verification_error}")
-                if option_found:
-                    return ActionResult(
-                        extracted_content=f"Combobox selection command executed for: {params.value}"
-                    )
-                else:
-                    return ActionResult(
-                        error=f"Failed to select combobox option: {params.value}"
-                    )
-
-        except Exception as interaction_error:
-            print(f"❌ Combobox interaction failed: {interaction_error}")
-            return ActionResult(
-                error=f"Failed to interact with combobox: {params.value}"
-            )
-
-    except Exception as e:
-        error_msg = f"❌ Playwright combobox selection failed: {str(e)}"
-        print(error_msg)
-        print(f"🔍 Error details: {type(e).__name__}: {str(e)}")
-        return ActionResult(error=error_msg)
-
-
 def download_resume(resume_url: str) -> str:
     """
     Download resume from URL and save it to uploads directory with a unique ID.
     Returns the local file path.
+    Raises an exception if download fails.
+    Handles both absolute URLs and relative paths (e.g., /api/storage/resumes/...)
     """
+    if not resume_url or not resume_url.strip():
+        raise ValueError("Resume URL is required and cannot be empty")
+
+    # Handle relative URLs (e.g., /api/storage/resumes/...)
+    # Convert to full URL using Next.js server URL
+    parsed = urlparse(resume_url)
+
+    # If it's a relative URL (no scheme), construct full URL
+    if not parsed.scheme or not parsed.netloc:
+        # Get Next.js server URL from environment or default to localhost:3000
+        nextjs_server_url = os.getenv("NEXTJS_SERVER_URL", "http://localhost:3000")
+        # Remove trailing slash if present
+        nextjs_server_url = nextjs_server_url.rstrip("/")
+        # Construct full URL
+        resume_url = urljoin(nextjs_server_url, resume_url)
+        print(f"📝 Converted relative URL to full URL: {resume_url}")
+        # Re-parse the full URL
+        parsed = urlparse(resume_url)
+
+    # Validate URL format after conversion
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"Invalid resume URL format: {resume_url}")
+
+    # Create uploads directory if it doesn't exist
+    uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
     try:
-        # Create uploads directory if it doesn't exist
-        uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
         os.makedirs(uploads_dir, exist_ok=True)
+    except Exception as e:
+        raise RuntimeError(f"Failed to create uploads directory: {str(e)}")
 
-        # Generate unique ID for the file
-        file_id = str(uuid.uuid4())
+    # Generate unique ID for the file
+    file_id = str(uuid.uuid4())
 
-        # Get file extension from URL or default to .pdf
-        if resume_url.lower().endswith(".pdf"):
-            file_ext = ".pdf"
-        elif resume_url.lower().endswith(".doc"):
-            file_ext = ".doc"
-        elif resume_url.lower().endswith(".docx"):
-            file_ext = ".docx"
-        else:
-            file_ext = ".pdf"  # Default to PDF
+    # Get file extension from URL or default to .pdf
+    if resume_url.lower().endswith(".pdf"):
+        file_ext = ".pdf"
+    elif resume_url.lower().endswith(".doc"):
+        file_ext = ".doc"
+    elif resume_url.lower().endswith(".docx"):
+        file_ext = ".docx"
+    else:
+        file_ext = ".pdf"  # Default to PDF
 
-        # Create local file path
-        local_filename = f"{file_id}{file_ext}"
-        local_path = os.path.join(uploads_dir, local_filename)
+    # Create local file path
+    local_filename = f"{file_id}{file_ext}"
+    local_path = os.path.join(uploads_dir, local_filename)
 
-        # Download the file
-        response = requests.get(resume_url, timeout=30)
+    # Download the file with proper error handling
+    try:
+        print(f"📥 Downloading resume from: {resume_url}")
+        response = requests.get(resume_url, timeout=30, stream=True)
         response.raise_for_status()
 
-        # Save the file
-        with open(local_path, "wb") as f:
-            f.write(response.content)
+        # Check content type if available
+        content_type = response.headers.get("content-type", "").lower()
+        if (
+            content_type
+            and "application/pdf" not in content_type
+            and "application/msword" not in content_type
+            and "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            not in content_type
+        ):
+            print(f"⚠️  Warning: Unexpected content type: {content_type}")
 
-        print(f"✅ Resume downloaded: {local_path}")
+        # Save the file
+        total_size = 0
+        max_size = 10 * 1024 * 1024  # 10MB limit
+        with open(local_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    total_size += len(chunk)
+                    if total_size > max_size:
+                        os.remove(local_path)
+                        raise ValueError(
+                            f"Resume file too large (max {max_size / 1024 / 1024}MB)"
+                        )
+
+        # Verify file was saved and has content
+        if not os.path.exists(local_path):
+            raise RuntimeError("Resume file was not saved successfully")
+
+        file_size = os.path.getsize(local_path)
+        if file_size == 0:
+            os.remove(local_path)
+            raise ValueError("Downloaded resume file is empty")
+
+        if file_size < 1024:  # Less than 1KB is suspicious
+            print(f"⚠️  Warning: Resume file is very small ({file_size} bytes)")
+
+        print(
+            f"✅ Resume downloaded successfully: {local_path} ({file_size / 1024:.2f} KB)"
+        )
         return local_path
 
+    except requests.exceptions.Timeout:
+        raise RuntimeError(f"Timeout while downloading resume from {resume_url}")
+    except requests.exceptions.HTTPError as e:
+        raise RuntimeError(
+            f"HTTP error while downloading resume: {e.response.status_code} - {e.response.reason}"
+        )
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"Network error while downloading resume: {str(e)}")
     except Exception as e:
-        print(f"❌ Failed to download resume: {str(e)}")
-        raise
+        # Clean up partial file if it exists
+        if os.path.exists(local_path):
+            try:
+                os.remove(local_path)
+            except:
+                pass
+        raise RuntimeError(f"Failed to download resume: {str(e)}")
 
 
 def cleanup_resume(file_path: str):
@@ -1018,8 +848,29 @@ def cleanup_resume(file_path: str):
         print(f"⚠️  Failed to cleanup resume file: {str(e)}")
 
 
-app = Flask(__name__, template_folder='templates')
+app = Flask(__name__, template_folder="templates")
 logging.basicConfig(level=logging.INFO)
+
+# Enable CORS for all routes to allow Next.js frontend to connect
+try:
+    from flask_cors import CORS
+
+    CORS(app, resources={r"/*": {"origins": "*"}})
+except ImportError:
+    print("⚠️  flask-cors not installed. Install with: pip install flask-cors")
+
+    # Add manual CORS headers as fallback
+    @app.after_request
+    def after_request(response):
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add(
+            "Access-Control-Allow-Headers", "Content-Type,Authorization"
+        )
+        response.headers.add(
+            "Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS"
+        )
+        return response
+
 
 # Global dictionary to store active Chrome sessions
 active_sessions = {}
@@ -1027,40 +878,46 @@ active_sessions = {}
 # Global dictionary to track task Chrome instances and their ports
 task_chrome_instances = {}
 
+
 @app.route("/screencast/<session_id>")
 def screencast_viewer(session_id):
     """
     Serve the minimal screenshot-based viewer HTML page for a specific session.
     """
-    return render_template('minimal-screenshots.html', session_id=session_id)
+    return render_template("minimal-screenshots.html", session_id=session_id)
+
 
 @app.route("/live-stream/<session_id>")
 def live_stream_viewer(session_id):
     """
     Serve the minimal live streaming viewer HTML page for a specific session.
     """
-    return render_template('minimal-live.html', session_id=session_id)
+    return render_template("minimal-live.html", session_id=session_id)
+
 
 @app.route("/debug-screencast/<session_id>")
 def debug_screencast_viewer(session_id):
     """
     Serve the full debug screenshot-based viewer HTML page for a specific session.
     """
-    return render_template('screencast.html', session_id=session_id)
+    return render_template("screencast.html", session_id=session_id)
+
 
 @app.route("/debug-live/<session_id>")
 def debug_live_stream_viewer(session_id):
     """
     Serve the full debug live streaming viewer HTML page for a specific session.
     """
-    return render_template('live-screencast.html', session_id=session_id)
+    return render_template("live-screencast.html", session_id=session_id)
+
 
 @app.route("/replay/<session_id>")
 def replay_viewer(session_id):
     """
     Serve the replay viewer HTML page for a specific session.
     """
-    return render_template('replay.html', session_id=session_id)
+    return render_template("replay.html", session_id=session_id)
+
 
 @app.route("/test-screenshot")
 def test_screenshot():
@@ -1072,21 +929,22 @@ def test_screenshot():
         tabs_response = requests.get("http://localhost:9222/json/list", timeout=5)
         if not tabs_response.ok:
             return f"❌ Chrome DevTools not accessible on port 9222<br>Status: {tabs_response.status_code}"
-        
+
         tabs = tabs_response.json()
         if not tabs:
             return "❌ No browser tabs found"
-        
+
         tab_info = f"✅ Chrome DevTools accessible<br>Found {len(tabs)} tabs:<br>"
         for i, tab in enumerate(tabs):
-            url = tab.get('url', 'No URL')
-            title = tab.get('title', 'No title')
-            tab_info += f"  Tab {i+1}: {title} - {url}<br>"
-        
+            url = tab.get("url", "No URL")
+            title = tab.get("title", "No title")
+            tab_info += f"  Tab {i + 1}: {title} - {url}<br>"
+
         return tab_info
-        
+
     except Exception as e:
         return f"❌ Error: {str(e)}"
+
 
 @app.route("/test-live-stream")
 def test_live_stream():
@@ -1136,15 +994,19 @@ def test_live_stream():
     </html>
     """
 
+
 @app.route("/api/task-instances")
 def get_task_instances():
     """
     Get information about all active Chrome task instances.
     """
-    return jsonify({
-        "active_tasks": task_chrome_instances,
-        "total_tasks": len(task_chrome_instances)
-    })
+    return jsonify(
+        {
+            "active_tasks": task_chrome_instances,
+            "total_tasks": len(task_chrome_instances),
+        }
+    )
+
 
 @app.route("/api/task-instances/<task_id>")
 def get_task_instance(task_id):
@@ -1154,11 +1016,12 @@ def get_task_instance(task_id):
     if task_id in task_chrome_instances:
         instance_info = task_chrome_instances[task_id].copy()
         # Don't return the process object in JSON
-        if 'process' in instance_info:
-            del instance_info['process']
+        if "process" in instance_info:
+            del instance_info["process"]
         return jsonify(instance_info)
     else:
         return jsonify({"error": "Task not found"}), 404
+
 
 @app.route("/api/task-ready/<task_id>")
 def check_task_ready(task_id):
@@ -1167,53 +1030,62 @@ def check_task_ready(task_id):
     """
     # Check if task exists in our instances
     if task_id not in task_chrome_instances:
-        return jsonify({
-            "ready": False,
-            "status": "not_started",
-            "message": "Browser is starting up..."
-        })
-    
+        return jsonify(
+            {
+                "ready": False,
+                "status": "not_started",
+                "message": "Browser is starting up...",
+            }
+        )
+
     instance = task_chrome_instances[task_id]
-    port = instance.get('port')
-    status = instance.get('status', 'unknown')
-    
-    if status != 'running':
-        return jsonify({
-            "ready": False,
-            "status": status,
-            "message": "Browser is starting up..."
-        })
-    
+    port = instance.get("port")
+    status = instance.get("status", "unknown")
+
+    if status != "running":
+        return jsonify(
+            {"ready": False, "status": status, "message": "Browser is starting up..."}
+        )
+
     # Check if Chrome DevTools is actually accessible
     try:
         tabs_response = requests.get(f"http://localhost:{port}/json/list", timeout=2)
         if tabs_response.ok:
             tabs = tabs_response.json()
             if tabs:
-                return jsonify({
-                    "ready": True,
-                    "status": "ready",
-                    "message": "Browser is ready",
-                    "tabs_count": len(tabs)
-                })
+                return jsonify(
+                    {
+                        "ready": True,
+                        "status": "ready",
+                        "message": "Browser is ready",
+                        "tabs_count": len(tabs),
+                    }
+                )
             else:
-                return jsonify({
-                    "ready": False,
-                    "status": "no_tabs",
-                    "message": "Browser starting, no tabs yet..."
-                })
+                return jsonify(
+                    {
+                        "ready": False,
+                        "status": "no_tabs",
+                        "message": "Browser starting, no tabs yet...",
+                    }
+                )
         else:
-            return jsonify({
-                "ready": False,
-                "status": "not_accessible",
-                "message": "Browser starting up..."
-            })
+            return jsonify(
+                {
+                    "ready": False,
+                    "status": "not_accessible",
+                    "message": "Browser starting up...",
+                }
+            )
     except Exception:
-        return jsonify({
-            "ready": False,
-            "status": "connecting",
-            "message": "Browser starting up..."
-        })
+        return jsonify(
+            {
+                "ready": False,
+                "status": "connecting",
+                "message": "Browser starting up...",
+            }
+        )
+
 
 @app.route("/api/task-screenshots/<task_id>")
 def get_task_screenshots(task_id):
@@ -1221,51 +1093,56 @@ def get_task_screenshots(task_id):
     Get list of saved screenshots for a task.
     """
     screenshots_dir = os.path.join(os.getcwd(), task_id)
-    
+
     if not os.path.exists(screenshots_dir):
-        return jsonify({
-            "screenshots": [],
-            "total": 0,
-            "message": "No screenshots found for this task"
-        })
-    
+        return jsonify(
+            {
+                "screenshots": [],
+                "total": 0,
+                "message": "No screenshots found for this task",
+            }
+        )
+
     try:
         # Get all screenshot files
         screenshot_files = []
         for filename in os.listdir(screenshots_dir):
-            if filename.startswith('screenshot_') and filename.endswith('.png'):
+            if filename.startswith("screenshot_") and filename.endswith(".png"):
                 file_path = os.path.join(screenshots_dir, filename)
                 file_stat = os.stat(file_path)
-                
+
                 # Extract number from filename
                 try:
-                    number = int(filename.replace('screenshot_', '').replace('.png', ''))
+                    number = int(
+                        filename.replace("screenshot_", "").replace(".png", "")
+                    )
                 except ValueError:
                     number = 0
-                
-                screenshot_files.append({
-                    'filename': filename,
-                    'number': number,
-                    'size': file_stat.st_size,
-                    'created': file_stat.st_mtime,
-                    'url': f'/api/task-screenshots/{task_id}/{filename}'
-                })
-        
+
+                screenshot_files.append(
+                    {
+                        "filename": filename,
+                        "number": number,
+                        "size": file_stat.st_size,
+                        "created": file_stat.st_mtime,
+                        "url": f"/api/task-screenshots/{task_id}/{filename}",
+                    }
+                )
+
         # Sort by number
-        screenshot_files.sort(key=lambda x: x['number'])
-        
-        return jsonify({
-            "screenshots": screenshot_files,
-            "total": len(screenshot_files),
-            "task_id": task_id
-        })
-        
+        screenshot_files.sort(key=lambda x: x["number"])
+
+        return jsonify(
+            {
+                "screenshots": screenshot_files,
+                "total": len(screenshot_files),
+                "task_id": task_id,
+            }
+        )
+
     except Exception as e:
-        return jsonify({
-            "error": str(e),
-            "screenshots": [],
-            "total": 0
-        }), 500
+        return jsonify({"error": str(e), "screenshots": [], "total": 0}), 500
+
 
 @app.route("/api/task-screenshots/<task_id>/<filename>")
 def get_task_screenshot_file(task_id, filename):
@@ -1274,14 +1151,15 @@ def get_task_screenshot_file(task_id, filename):
     """
     screenshots_dir = os.path.join(os.getcwd(), task_id)
     file_path = os.path.join(screenshots_dir, filename)
-    
-    if not os.path.exists(file_path) or not filename.endswith('.png'):
+
+    if not os.path.exists(file_path) or not filename.endswith(".png"):
         return jsonify({"error": "Screenshot not found"}), 404
-    
+
     try:
-        return send_file(file_path, mimetype='image/png', as_attachment=False)
+        return send_file(file_path, mimetype="image/png", as_attachment=False)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/live-stream/<session_id>")
 def start_live_stream(session_id):
@@ -1293,201 +1171,213 @@ def start_live_stream(session_id):
     import threading
     import queue
     import websocket
-    
+
     def generate_frames():
         try:
             # Check if task exists and get port
             if session_id not in task_chrome_instances:
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Browser not started yet. Please wait...'})}\n\n"
                 return
-                
+
             instance = task_chrome_instances[session_id]
-            cdp_port = instance.get('port')
-            status = instance.get('status')
-            
-            if status != 'running':
+            cdp_port = instance.get("port")
+            status = instance.get("status")
+
+            if status != "running":
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Browser is still starting up...'})}\n\n"
                 return
-            
+
             # Get list of tabs
-            tabs_response = requests.get(f"http://localhost:{cdp_port}/json/list", timeout=5)
+            tabs_response = requests.get(
+                f"http://localhost:{cdp_port}/json/list", timeout=5
+            )
             if not tabs_response.ok:
                 yield f"data: {json.dumps({'type': 'error', 'message': f'Cannot connect to browser on port {cdp_port}'})}\n\n"
                 return
-                
+
             tabs = tabs_response.json()
             if not tabs:
                 yield f"data: {json.dumps({'error': 'No browser tabs found'})}\n\n"
                 return
-            
+
             # Find the best tab (job application pages preferred)
             target_tab = None
             for tab in tabs:
-                url = tab.get('url', '')
-                if any(keyword in url.lower() for keyword in ['job', 'application', 'career', 'apply', 'ashby']):
+                url = tab.get("url", "")
+                if any(
+                    keyword in url.lower()
+                    for keyword in ["job", "application", "career", "apply", "ashby"]
+                ):
                     target_tab = tab
                     break
-            
+
             if not target_tab:
                 # Fallback to first non-blank tab
                 for tab in tabs:
-                    url = tab.get('url', '')
-                    if url and not url.startswith('chrome://') and url != 'about:blank':
+                    url = tab.get("url", "")
+                    if url and not url.startswith("chrome://") and url != "about:blank":
                         target_tab = tab
                         break
-                        
+
             if not target_tab:
                 target_tab = tabs[0]
-            
-            ws_url = target_tab.get('webSocketDebuggerUrl')
+
+            ws_url = target_tab.get("webSocketDebuggerUrl")
             if not ws_url:
                 yield f"data: {json.dumps({'error': 'No WebSocket URL available for browser tab'})}\n\n"
                 return
-            
+
             # Frame counter for saving
             frame_count = 0
             frame_queue = queue.Queue()
-            
+
             def on_message(ws, message):
                 nonlocal frame_count
                 try:
                     data = json.loads(message)
-                    
+
                     # Handle response to Page.startScreencast
-                    if data.get('id') == 2 and 'error' in data:
-                        frame_queue.put({'type': 'error', 'message': f'Screencast start failed: {data["error"]["message"]}'})
-                    
+                    if data.get("id") == 2 and "error" in data:
+                        frame_queue.put(
+                            {
+                                "type": "error",
+                                "message": f"Screencast start failed: {data['error']['message']}",
+                            }
+                        )
+
                     # Handle screencast frames
-                    elif data.get('method') == 'Page.screencastFrame':
-                        params = data.get('params', {})
-                        frame_data = params.get('data')
-                        session_id_cdp = params.get('sessionId')
-                        
+                    elif data.get("method") == "Page.screencastFrame":
+                        params = data.get("params", {})
+                        frame_data = params.get("data")
+                        session_id_cdp = params.get("sessionId")
+
                         if frame_data:
                             frame_count += 1
-                            
+
                             # Save frame to disk for replay
                             screenshots_dir = os.path.join(os.getcwd(), session_id)
                             os.makedirs(screenshots_dir, exist_ok=True)
-                            frame_path = os.path.join(screenshots_dir, f"screenshot_{frame_count}.png")
+                            frame_path = os.path.join(
+                                screenshots_dir, f"screenshot_{frame_count}.png"
+                            )
                             try:
                                 image_data = base64.b64decode(frame_data)
-                                with open(frame_path, 'wb') as f:
+                                with open(frame_path, "wb") as f:
                                     f.write(image_data)
                             except Exception:
                                 pass  # Ignore save errors, continue streaming
-                            
+
                             # Send frame to client
                             frame_info = {
-                                'type': 'frame',
-                                'data': frame_data,
-                                'frame_number': frame_count,
-                                'timestamp': time.time(),
-                                'metadata': {
-                                    'width': params.get('metadata', {}).get('screenWidth'),
-                                    'height': params.get('metadata', {}).get('screenHeight'),
-                                }
+                                "type": "frame",
+                                "data": frame_data,
+                                "frame_number": frame_count,
+                                "timestamp": time.time(),
+                                "metadata": {
+                                    "width": params.get("metadata", {}).get(
+                                        "screenWidth"
+                                    ),
+                                    "height": params.get("metadata", {}).get(
+                                        "screenHeight"
+                                    ),
+                                },
                             }
                             frame_queue.put(frame_info)
-                            
+
                             # Acknowledge the frame
                             if session_id_cdp:
                                 ack_payload = {
-                                    'id': frame_count + 1000,
-                                    'method': 'Page.screencastFrameAck',
-                                    'params': {'sessionId': session_id_cdp}
+                                    "id": frame_count + 1000,
+                                    "method": "Page.screencastFrameAck",
+                                    "params": {"sessionId": session_id_cdp},
                                 }
                                 ws.send(json.dumps(ack_payload))
-                                
+
                 except Exception as e:
-                    frame_queue.put({'type': 'error', 'message': str(e)})
-            
+                    frame_queue.put({"type": "error", "message": str(e)})
+
             def on_error(ws, error):
-                frame_queue.put({'type': 'error', 'message': str(error)})
-            
+                frame_queue.put({"type": "error", "message": str(error)})
+
             def on_open(ws):
-                
                 # Enable Page domain first
-                enable_page_payload = {
-                    'id': 1,
-                    'method': 'Page.enable'
-                }
+                enable_page_payload = {"id": 1, "method": "Page.enable"}
                 ws.send(json.dumps(enable_page_payload))
-                
+
                 # Start screencast
                 start_screencast_payload = {
-                    'id': 2,
-                    'method': 'Page.startScreencast',
-                    'params': {
-                        'format': 'png',
-                        'quality': 80,
-                        'maxWidth': 1920,
-                        'maxHeight': 1080,
-                        'everyNthFrame': 1  # Send every frame
-                    }
+                    "id": 2,
+                    "method": "Page.startScreencast",
+                    "params": {
+                        "format": "png",
+                        "quality": 80,
+                        "maxWidth": 1920,
+                        "maxHeight": 1080,
+                        "everyNthFrame": 1,  # Send every frame
+                    },
                 }
                 ws.send(json.dumps(start_screencast_payload))
-                
+
                 # Send initial status
-                frame_queue.put({
-                    'type': 'status', 
-                    'message': 'Live stream started',
-                    'tab_url': target_tab.get('url', ''),
-                    'tab_title': target_tab.get('title', '')
-                })
-            
+                frame_queue.put(
+                    {
+                        "type": "status",
+                        "message": "Live stream started",
+                        "tab_url": target_tab.get("url", ""),
+                        "tab_title": target_tab.get("title", ""),
+                    }
+                )
+
             # Start WebSocket in a separate thread
             ws = websocket.WebSocketApp(
-                ws_url,
-                on_message=on_message,
-                on_error=on_error,
-                on_open=on_open
+                ws_url, on_message=on_message, on_error=on_error, on_open=on_open
             )
-            
+
             ws_thread = threading.Thread(target=ws.run_forever)
             ws_thread.daemon = True
             ws_thread.start()
-            
+
             # Stream frames to client
             while True:
                 try:
                     # Get frame from queue (blocking with timeout)
                     frame_data = frame_queue.get(timeout=30)  # 30 second timeout
                     yield f"data: {json.dumps(frame_data)}\n\n"
-                    
-                    if frame_data.get('type') == 'error':
+
+                    if frame_data.get("type") == "error":
                         break
-                        
+
                 except queue.Empty:
                     # Send keepalive
                     yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': time.time()})}\n\n"
                 except Exception as e:
                     print(f"❌ Error in frame streaming: {e}")
                     break
-            
+
             # Cleanup
             try:
                 # Stop screencast
-                stop_payload = {'id': 999, 'method': 'Page.stopScreencast'}
+                stop_payload = {"id": 999, "method": "Page.stopScreencast"}
                 ws.send(json.dumps(stop_payload))
                 ws.close()
             except:
                 pass
-                
+
         except Exception as e:
             print(f"❌ Live stream error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-    
+
     return Response(
         generate_frames(),
-        mimetype='text/event-stream',
+        mimetype="text/event-stream",
         headers={
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Cache-Control'
-        }
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control",
+        },
     )
+
 
 @app.route("/api/screenshot/<session_id>")
 def get_screenshot(session_id):
@@ -1498,49 +1388,67 @@ def get_screenshot(session_id):
         # Get the port for this specific task
         cdp_port = None
         if session_id in task_chrome_instances:
-            cdp_port = task_chrome_instances[session_id]['port']
+            cdp_port = task_chrome_instances[session_id]["port"]
         else:
             # Fallback to standard port
             cdp_port = 9222
-        
+
         # Get list of tabs/pages
-        tabs_response = requests.get(f"http://localhost:{cdp_port}/json/list", timeout=5)
+        tabs_response = requests.get(
+            f"http://localhost:{cdp_port}/json/list", timeout=5
+        )
         if not tabs_response.ok:
-            return jsonify({"error": f"Failed to connect to Chrome DevTools on port {cdp_port}. Make sure Chrome is running with --remote-debugging-port=9222"}), 500
-            
+            return jsonify(
+                {
+                    "error": f"Failed to connect to Chrome DevTools on port {cdp_port}. Make sure Chrome is running with --remote-debugging-port=9222"
+                }
+            ), 500
+
         tabs = tabs_response.json()
         if not tabs:
-            return jsonify({"error": "No browser tabs found. The browser session may not have started yet."}), 404
-            
+            return jsonify(
+                {
+                    "error": "No browser tabs found. The browser session may not have started yet."
+                }
+            ), 404
+
         # Find the most relevant tab (prefer job application pages)
         target_tab = None
         for tab in tabs:
-            url = tab.get('url', '')
-            title = tab.get('title', '')
+            url = tab.get("url", "")
+            title = tab.get("title", "")
             # Prefer job application pages
-            if url and ('job' in url.lower() or 'application' in url.lower() or 'ashby' in url.lower()):
+            if url and (
+                "job" in url.lower()
+                or "application" in url.lower()
+                or "ashby" in url.lower()
+            ):
                 target_tab = tab
                 break
-        
+
         # If no job pages found, skip chrome:// and about: pages
         if not target_tab:
             for tab in tabs:
-                url = tab.get('url', '')
-                if url and not url.startswith('about:') and not url.startswith('chrome://'):
+                url = tab.get("url", "")
+                if (
+                    url
+                    and not url.startswith("about:")
+                    and not url.startswith("chrome://")
+                ):
                     target_tab = tab
                     break
-        
+
         # If still no suitable tab, use the first available tab
         if not target_tab and tabs:
             target_tab = tabs[0]
-            
+
         if not target_tab:
             return jsonify({"error": "No suitable browser tab found"}), 404
-            
+
         # Use Chrome DevTools REST API to take screenshot
-        tab_id = target_tab['id']
+        tab_id = target_tab["id"]
         screenshot_url = f"http://localhost:{cdp_port}/json/runtime/evaluate"
-        
+
         # JavaScript to take screenshot via DevTools
         js_code = """
         new Promise((resolve) => {
@@ -1553,7 +1461,7 @@ def get_screenshot(session_id):
             });
         })
         """
-        
+
         # Alternative: Direct CDP call
         screenshot_response = requests.post(
             screenshot_url,
@@ -1572,106 +1480,110 @@ def get_screenshot(session_id):
                 }})()
                 """
             },
-            timeout=10
+            timeout=10,
         )
-        
+
         # Simple approach: Use WebSocket for screenshot
         try:
             import websocket
             import threading
-            
-            ws_url = target_tab.get('webSocketDebuggerUrl')
+
+            ws_url = target_tab.get("webSocketDebuggerUrl")
             if not ws_url:
-                return jsonify({"error": "WebSocket URL not available for the selected tab"}), 500
-                
+                return jsonify(
+                    {"error": "WebSocket URL not available for the selected tab"}
+                ), 500
+
             screenshot_data = None
             screenshot_error = None
             screenshot_done = threading.Event()
-            
+
             def on_message(ws, message):
                 nonlocal screenshot_data, screenshot_error
                 try:
                     data = json.loads(message)
-                    if data.get('id') == 123 and 'result' in data:
-                        if 'data' in data['result']:
-                            screenshot_data = data['result']['data']
+                    if data.get("id") == 123 and "result" in data:
+                        if "data" in data["result"]:
+                            screenshot_data = data["result"]["data"]
                             screenshot_done.set()
                         else:
                             screenshot_error = "No screenshot data in response"
                             screenshot_done.set()
-                    elif data.get('id') == 123 and 'error' in data:
-                        screenshot_error = data['error']['message']
+                    elif data.get("id") == 123 and "error" in data:
+                        screenshot_error = data["error"]["message"]
                         screenshot_done.set()
                 except Exception as e:
                     screenshot_error = str(e)
                     screenshot_done.set()
-                    
+
             def on_error(ws, error):
                 nonlocal screenshot_error
                 screenshot_error = str(error)
                 screenshot_done.set()
-                
+
             def on_open(ws):
                 # Send screenshot command with unique ID
                 screenshot_cmd = {
                     "id": 123,
                     "method": "Page.captureScreenshot",
-                    "params": {
-                        "format": "png",
-                        "quality": 80
-                    }
+                    "params": {"format": "png", "quality": 80},
                 }
                 ws.send(json.dumps(screenshot_cmd))
-                
+
             # Create WebSocket connection
             ws = websocket.WebSocketApp(
-                ws_url,
-                on_message=on_message,
-                on_error=on_error,
-                on_open=on_open
+                ws_url, on_message=on_message, on_error=on_error, on_open=on_open
             )
-            
+
             # Run WebSocket in a thread
             ws_thread = threading.Thread(target=ws.run_forever)
             ws_thread.daemon = True
             ws_thread.start()
-            
+
             # Wait for screenshot (with timeout)
             if screenshot_done.wait(timeout=10):
                 ws.close()
                 if screenshot_error:
                     logging.error(f"Screenshot WebSocket error: {screenshot_error}")
-                    return jsonify({"error": f"Screenshot failed: {screenshot_error}"}), 500
+                    return jsonify(
+                        {"error": f"Screenshot failed: {screenshot_error}"}
+                    ), 500
                 if not screenshot_data:
                     return jsonify({"error": "No screenshot data received"}), 500
-                    
+
                 # Decode base64 image data
                 image_data = base64.b64decode(screenshot_data)
-                
+
                 # Create image response
                 return send_file(
-                    io.BytesIO(image_data),
-                    mimetype='image/png',
-                    as_attachment=False
+                    io.BytesIO(image_data), mimetype="image/png", as_attachment=False
                 )
             else:
                 ws.close()
-                return jsonify({"error": "Screenshot timeout - browser may not be responding"}), 500
-                
+                return jsonify(
+                    {"error": "Screenshot timeout - browser may not be responding"}
+                ), 500
+
         except ImportError:
-            return jsonify({"error": "WebSocket library not available. Install websocket-client: pip install websocket-client"}), 500
+            return jsonify(
+                {
+                    "error": "WebSocket library not available. Install websocket-client: pip install websocket-client"
+                }
+            ), 500
         except Exception as e:
             logging.error(f"Screenshot WebSocket exception: {str(e)}")
             return jsonify({"error": f"Screenshot error: {str(e)}"}), 500
-            
+
     except requests.RequestException as e:
         logging.error(f"Screenshot endpoint - Request error: {str(e)}")
         return jsonify({"error": f"Failed to connect to Chrome: {str(e)}"}), 500
     except Exception as e:
         logging.error(f"Screenshot endpoint - Unexpected error: {str(e)}")
         import traceback
+
         logging.error(f"Screenshot endpoint - Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
 
 @app.route("/apply-job", methods=["POST"])
 def apply_job():
@@ -1692,32 +1604,17 @@ def apply_job():
         resume_url = data.get("resume_url", "")
         profile = data.get("profile", "")
 
-        # Create Steel session
-        STEEL_API_KEY = os.getenv("STEEL_API_KEY")
-        if not STEEL_API_KEY:
-            return jsonify(
-                {"error": "STEEL_API_KEY environment variable is required"}
-            ), 400
-
-        session = None
-        try:
-            client = Steel(steel_api_key=STEEL_API_KEY)
-            # session = client.sessions.create()
-        except Exception as steel_error:
-            logging.error(f"Failed to create Steel session: {str(steel_error)}")
-            return jsonify(
-                {"error": f"Failed to create Steel session: {str(steel_error)}"}
-            ), 500
+        # Using local browser automation - no external services required
 
         # Create task ID for tracking
         task_id = str(uuid.uuid4())
         cdp_url = "http://localhost:9222"
-        
+
         # Store session info for tracking
         active_sessions[task_id] = {
             "cdp_url": cdp_url,
             "status": "starting",
-            "created_at": threading.current_thread().ident
+            "created_at": threading.current_thread().ident,
         }
 
         # Start the agent task in the background using thread executor
@@ -1831,7 +1728,14 @@ async def run_agent_background(
 
 
 async def run_agent(
-    task_id, cdp_url, link, additional_information, headless, max_steps, resume_url, profile
+    task_id,
+    cdp_url,
+    link,
+    additional_information,
+    headless,
+    max_steps,
+    resume_url,
+    profile,
 ):
     print(
         f"Running agent with task_id: {task_id}, link: {link}, additional_information: {additional_information}, headless: {headless}, max_steps: {max_steps}"
@@ -1841,23 +1745,75 @@ async def run_agent(
         # Start Chrome with task-specific tracking
         process, port = await start_chrome_with_debug_port(task_id=task_id)
         actual_cdp_url = f"http://localhost:{port}"
-        
+
         # Step 2: Connect Playwright to the same Chrome instance
         await connect_playwright_to_cdp(actual_cdp_url)
 
         # Step 3: Create Browser-Use session connected to same Chrome
-        browser_session = BrowserSession(cdp_url=actual_cdp_url, headless=True)
+        # Note: BrowserSession will use the same Chrome instance via CDP
+        browser_session = BrowserSession(cdp_url=actual_cdp_url, headless=False)
 
-        # Download resume file if URL is provided
+        # Apply stealth to all contexts after BrowserSession is created
+        # This ensures browser-use's contexts also have stealth applied
+        if playwright_browser:
+            stealth = Stealth()
+            # Wait a moment for BrowserSession to create its context
+            await asyncio.sleep(0.5)
+
+            # Apply stealth to all contexts (including any BrowserSession created)
+            if playwright_browser.contexts:
+                for context in playwright_browser.contexts:
+                    try:
+                        await stealth.apply_stealth_async(context)
+                        print(f"✅ Applied stealth to context for browser-use")
+                    except Exception as e:
+                        print(f"⚠️  Failed to apply stealth to context: {e}")
+
+        # Download resume file if URL is provided - REQUIRED, fail if can't download
         local_resume_path = None
         if resume_url and resume_url.strip():
             try:
                 local_resume_path = download_resume(resume_url)
-                print(f"✅ Resume downloaded to: {local_resume_path}")
+                print(f"✅ Resume downloaded successfully to: {local_resume_path}")
             except Exception as e:
-                print(f"⚠️  Failed to download resume: {str(e)}")
-                # Continue without resume if download fails
-                local_resume_path = None
+                error_msg = f"❌ Failed to download resume from {resume_url}: {str(e)}"
+                print(error_msg)
+                logging.error(error_msg)
+                # Update task status with error
+                task_results[task_id] = {
+                    "status": "failed",
+                    "message": "Resume download failed",
+                    "result": None,
+                    "error": str(e),
+                }
+                # Clean up Chrome instance
+                if task_id in task_chrome_instances:
+                    instance = task_chrome_instances[task_id]
+                    process = instance.get("process")
+                    if process:
+                        try:
+                            process.terminate()
+                            import time
+
+                            time.sleep(1)
+                            if process.poll() is None:
+                                process.kill()
+                        except Exception:
+                            pass
+                    del task_chrome_instances[task_id]
+                # Re-raise to stop execution
+                raise RuntimeError(f"Resume download failed: {str(e)}")
+        else:
+            error_msg = "❌ Resume URL is required but not provided"
+            print(error_msg)
+            logging.error(error_msg)
+            task_results[task_id] = {
+                "status": "failed",
+                "message": "Resume URL not provided",
+                "result": None,
+                "error": "Resume URL is required",
+            }
+            raise ValueError("Resume URL is required")
 
         # Create the agent task with resume path if available
         task_text = f"Please go to {link} and complete the application process using this information. Here are the infos about the user: \n{profile} \nAdditional information: {additional_information}"
@@ -1868,11 +1824,10 @@ async def run_agent(
         task_text += " Don't use the autofill resume feature."
 
         task_text += " If an answer is not available, please infer it if it is a required field otherwise skip it."
-        task_text += " Use the 'playwright_combobox_select' action to select an option from an input field that is a combobox."
 
         agent = Agent(
             task=task_text,
-            llm=ChatOpenAI(model="o3"),
+            llm=ChatOpenAI(model="gpt-5-mini"),
             browser_session=browser_session,
             tools=tools,
         )
@@ -1906,6 +1861,58 @@ def get_task_status(task_id):
 
     except Exception as e:
         logging.error(f"Error getting task status: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/stop-task/<task_id>", methods=["POST"])
+def stop_task(task_id):
+    """
+    Stop a running browser automation task.
+    """
+    try:
+        # Check if task exists
+        if task_id not in task_results:
+            return jsonify({"error": "Task not found"}), 404
+
+        # Update task status to stopped
+        if task_id in task_results:
+            task_results[task_id]["status"] = "stopped"
+            task_results[task_id]["message"] = "Task stopped by user"
+
+        # Stop Chrome instance if running
+        if task_id in task_chrome_instances:
+            instance = task_chrome_instances[task_id]
+            process = instance.get("process")
+
+            if process:
+                try:
+                    # Terminate the Chrome process
+                    process.terminate()
+                    # Wait a bit for graceful shutdown
+                    import time
+
+                    time.sleep(2)
+                    # Force kill if still running
+                    if process.poll() is None:
+                        process.kill()
+                    print(f"✅ Stopped Chrome process for task {task_id}")
+                except Exception as e:
+                    print(f"⚠️  Error stopping Chrome process: {e}")
+
+            # Clean up the instance
+            del task_chrome_instances[task_id]
+            print(f"✅ Cleaned up Chrome instance for task {task_id}")
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Task stopped successfully",
+                "task_id": task_id,
+            }
+        )
+
+    except Exception as e:
+        logging.error(f"Error stopping task: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 

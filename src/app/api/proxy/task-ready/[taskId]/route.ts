@@ -1,29 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const FLASK_SERVER_URL = process.env.FLASK_SERVER_URL || "http://localhost:3001";
+
 export async function GET(
-    request: NextRequest,
+    req: NextRequest,
     { params }: { params: { taskId: string } }
 ) {
-    const { taskId } = params;
-
     try {
-        const response = await fetch(`http://localhost:3001/api/task-ready/${taskId}`, {
-            method: 'GET',
+        const { taskId } = await params;
+
+        if (!taskId) {
+            return NextResponse.json(
+                { error: "Task ID is required" },
+                { status: 400 }
+            );
+        }
+
+        const response = await fetch(`${FLASK_SERVER_URL}/api/task-ready/${taskId}`, {
+            method: "GET",
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
         });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            return NextResponse.json(
+                { error: errorData.error || "Failed to check task status" },
+                { status: response.status }
+            );
+        }
 
         const data = await response.json();
         return NextResponse.json(data);
     } catch (error) {
-        console.error("Error proxying task ready request:", error);
+        console.error("Error proxying task-ready request:", error);
         return NextResponse.json(
-            { 
-                ready: false, 
-                status: "error", 
-                message: "Failed to check task status" 
-            },
+            { error: "Failed to check task status" },
             { status: 500 }
         );
     }

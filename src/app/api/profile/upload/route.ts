@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth/helpers";
 import { db } from "@/db/drizzle";
 import { profiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { utapi } from "@/app/api/uploadthing/core";
+import { saveFile } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
     const { userId } = await auth();
@@ -34,30 +34,19 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Validate file size (5MB limit)
+        // Validate file size (16MB limit)
         const maxSize = 16 * 1024 * 1024; // 16MB
         if (file.size > maxSize) {
             return NextResponse.json(
                 {
-                    error: "File size too large. Please upload files smaller than 5MB.",
+                    error: "File size too large. Please upload files smaller than 16MB.",
                 },
                 { status: 400 }
             );
         }
 
-
-        const response = await utapi.uploadFiles(file);
-
-        if (response.error) {
-            console.error("Supabase upload error:", response.error);
-            return NextResponse.json(
-                { error: "Failed to upload file" },
-                { status: 500 }
-            );
-        }
-
-        // Get public URL
-        const publicUrl = response.data.ufsUrl;
+        // Save file to storage
+        const { publicUrl } = await saveFile(userId, file);
 
         // Update profile with resume URL
         const [updatedProfile] = await db

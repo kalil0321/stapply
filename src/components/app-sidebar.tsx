@@ -10,9 +10,9 @@ import {
     BarChart3,
     RouteIcon,
     RocketIcon,
+    SearchIcon,
 } from "lucide-react";
 
-import { NavMain } from "@/components/nav/main";
 import { NavJobs } from "@/components/nav/jobs";
 import { NavSecondary } from "@/components/nav/secondary";
 import { NavUser } from "@/components/nav/user";
@@ -35,6 +35,11 @@ const data = {
         role: "Software Engineer",
     },
     jobCategories: [
+        {
+            title: "All Jobs",
+            url: "/jobs",
+            icon: SearchIcon,
+        },
         {
             title: "Applications",
             url: "/applications",
@@ -87,7 +92,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
             </SidebarHeader>
             <SidebarContent>
-                <NavMain />
                 <NavJobs items={data.jobCategories} />
                 <NavSecondary items={data.navSecondary} className="mt-auto" />
             </SidebarContent>

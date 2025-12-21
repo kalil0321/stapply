@@ -2,6 +2,18 @@
 
 Create a `.env` file using `env.example` as a template.  
 
+Start Postgres with Docker:
+
+```bash
+docker compose up -d
+```
+
+Apply the schema:
+
+```bash
+npx drizzle-kit push
+```
+
 Run the local Browser Use server:
 
 ```bash

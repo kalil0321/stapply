@@ -14,7 +14,8 @@ import {
     PlayCircleIcon,
     StopCircleIcon,
     InfoIcon,
-    ClockIcon
+    ClockIcon,
+    SquareIcon
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Application } from "@/lib/types";
 import Link from "next/link";
 import { LiveAutomationViewer } from "@/components/live-automation-viewer";
+import { BrowserViewer } from "@/components/browser-viewer";
 
 const TaskStatus = {
     Started: "started",
@@ -114,33 +116,9 @@ const getSuccessInfo = (isSuccess: boolean | null) => {
 export default function ApplicationPage() {
     const { id } = useParams();
     const router = useRouter();
+    const [isStopping, setIsStopping] = useState(false);
 
     const searchParams = useSearchParams();
-    const liveUrl = searchParams.get("live");
-    const fallbackUrl = searchParams.get("fallback");
-    const replayUrl = searchParams.get("replay");
-    const taskId = searchParams.get("task_id");
-
-    // If we have live automation URLs, show the live viewer
-    if (liveUrl && fallbackUrl && replayUrl && taskId) {
-        return (
-            <LiveAutomationViewer
-                liveUrl={liveUrl}
-                fallbackUrl={fallbackUrl}
-                replayUrl={replayUrl}
-                taskId={taskId}
-            />
-        );
-    }
-
-    // Legacy support: if we only have liveUrl, show simple iframe
-    if (liveUrl) {
-        return (
-            <div className="flex-1 flex items-center justify-center p-6">
-                <iframe src={liveUrl} className="w-full h-full border border-border rounded-lg" />
-            </div>
-        );
-    }
 
     const fetchApplication = async () => {
         if (!id) {
@@ -174,7 +152,11 @@ export default function ApplicationPage() {
             url: data.url,
             output: data.output,
             status: data.status,
-            isSuccess: data.isSuccess
+            isSuccess: data.isSuccess,
+            liveUrl: data.liveUrl,
+            fallbackUrl: data.fallbackUrl,
+            replayUrl: data.replayUrl,
+            taskId: data.taskId
         };
     };
 
@@ -204,8 +186,140 @@ export default function ApplicationPage() {
     const output = queryData?.output || null;
     const status = queryData?.status || null;
     const isSuccess = queryData?.isSuccess || null;
+    const liveUrl = queryData?.liveUrl || null;
+    const fallbackUrl = queryData?.fallbackUrl || null;
+    const replayUrl = queryData?.replayUrl || null;
+    const taskId = queryData?.taskId || application?.taskId || null;
     const loading = isLoading;
     const error = queryError instanceof Error ? queryError.message : null;
+
+    const handleStop = async () => {
+        if (!id) return;
+
+        setIsStopping(true);
+        try {
+            const response = await fetch(`/api/applications/${id}/stop`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || "Failed to stop application");
+            }
+
+            // Refetch application data to update status
+            window.location.reload();
+        } catch (error) {
+            console.error("Error stopping application:", error);
+            alert(error instanceof Error ? error.message : "Failed to stop application");
+        } finally {
+            setIsStopping(false);
+        }
+    };
+
+    // If we have a taskId from local Flask server, show the live automation viewer with iframe
+    // This works better than BrowserViewer's SSE approach for in-page viewing
+    if (taskId && liveUrl && fallbackUrl && replayUrl) {
+        return (
+            <div className="flex flex-col h-screen">
+                <LiveAutomationViewer
+                    liveUrl={liveUrl}
+                    fallbackUrl={fallbackUrl}
+                    replayUrl={replayUrl}
+                    taskId={taskId}
+                />
+            </div>
+        );
+    }
+
+    // Fallback: If we only have liveUrl, use iframe directly (works better than SSE)
+    if (taskId && liveUrl && !fallbackUrl && !replayUrl) {
+        return (
+            <div className="flex flex-col h-screen">
+                {/* Header */}
+                <div className="border-b border-border p-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Button variant="ghost" size="sm" asChild>
+                                <Link href="/applications">
+                                    <ArrowLeftIcon className="w-4 h-4 mr-2" />
+                                    Back
+                                </Link>
+                            </Button>
+                            <Separator orientation="vertical" className="h-6" />
+                            <h2 className="text-lg font-semibold">Browser Automation</h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={handleStop}
+                                disabled={isStopping}
+                            >
+                                {isStopping ? (
+                                    <>
+                                        <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
+                                        Stopping...
+                                    </>
+                                ) : (
+                                    <>
+                                        <SquareIcon className="w-4 h-4 mr-2" />
+                                        Stop Workflow
+                                    </>
+                                )}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(liveUrl, "_blank")}
+                            >
+                                <ExternalLinkIcon className="w-4 h-4 mr-2" />
+                                Open in New Tab
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+                {/* Iframe Viewer */}
+                <div className="flex-1 relative">
+                    <iframe
+                        src={liveUrl}
+                        className="w-full h-full border-0"
+                        title="Browser Automation"
+                        allow="camera; microphone; geolocation"
+                    />
+                </div>
+            </div>
+        );
+    }
+
+    // Legacy support: if we have live automation URLs from query params, show the live viewer
+    const searchParamsLiveUrl = searchParams.get("live");
+    const searchParamsFallbackUrl = searchParams.get("fallback");
+    const searchParamsReplayUrl = searchParams.get("replay");
+    const searchParamsTaskId = searchParams.get("task_id");
+
+    if (searchParamsLiveUrl && searchParamsFallbackUrl && searchParamsReplayUrl && searchParamsTaskId) {
+        return (
+            <LiveAutomationViewer
+                liveUrl={searchParamsLiveUrl}
+                fallbackUrl={searchParamsFallbackUrl}
+                replayUrl={searchParamsReplayUrl}
+                taskId={searchParamsTaskId}
+            />
+        );
+    }
+
+    // Legacy support: if we only have liveUrl, show simple iframe
+    if (searchParamsLiveUrl) {
+        return (
+            <div className="flex-1 flex items-center justify-center p-6">
+                <iframe src={searchParamsLiveUrl} className="w-full h-full border border-border rounded-lg" />
+            </div>
+        );
+    }
 
     if (loading) {
         return (
@@ -280,16 +394,36 @@ export default function ApplicationPage() {
                     </h1>
                     <Badge variant="outline">Applied</Badge>
                 </div>
-                {url && (
+                <div className="flex items-center gap-2">
                     <Button
-                        variant="outline"
+                        variant="destructive"
                         size="sm"
-                        onClick={() => window.open(url, "_blank")}
+                        onClick={handleStop}
+                        disabled={isStopping}
                     >
-                        <ExternalLinkIcon className="w-4 h-4 mr-2" />
-                        Open Live Session
+                        {isStopping ? (
+                            <>
+                                <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
+                                Stopping...
+                            </>
+                        ) : (
+                            <>
+                                <SquareIcon className="w-4 h-4 mr-2" />
+                                Stop Workflow
+                            </>
+                        )}
                     </Button>
-                )}
+                    {url && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(url, "_blank")}
+                        >
+                            <ExternalLinkIcon className="w-4 h-4 mr-2" />
+                            Open Live Session
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Compact Info Bar */}

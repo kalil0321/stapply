@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { SavedJob } from "@/lib/types";
 import { JobCard } from "./job-card";
+import { toast } from "sonner";
 
 interface ApplicationSheetProps {
     isOpen: boolean;
@@ -134,16 +135,24 @@ export function ApplicationSheet({
 
         try {
             const data = await applyMutation.mutateAsync(savedJob.jobId);
+
+            // Show notification if already applied
+            if (data.alreadyApplied) {
+                toast.warning("You have already applied to this job. Creating a new application.");
+            }
+
             onOpenChange(false);
 
             if (isLocal) {
+                // Always use application ID with search params for live stream
+                const applicationId = data.application?.id || savedJob.jobId;
                 const params = new URLSearchParams({
                     live: data.live_url,
                     fallback: data.fallback_url,
                     replay: data.replay_url,
                     task_id: data.task_id
                 });
-                router.push(`/application/${savedJob.jobId}?${params.toString()}`);
+                router.push(`/application/${applicationId}?${params.toString()}`);
             } else {
                 router.push(`/application/${data.application.id}`);
             }
@@ -283,7 +292,7 @@ export function ApplicationSheet({
                                 Instructions
                             </TabsTrigger>
                         </TabsList>
-                        
+
                         <TabsContent value="profile" className="space-y-4 mt-4">
                             {/* Profile Completeness Status */}
                             {!profile || Object.keys(profile).length === 0 ? (
@@ -309,13 +318,12 @@ export function ApplicationSheet({
                                 </div>
                             ) : (
                                 <div
-                                    className={`rounded-lg px-4 pb-4 transition-colors ${
-                                        criticalMissing.length > 0
-                                            ? "bg-red-50/50 dark:bg-red-900/10"
-                                            : hasAllRecommended
+                                    className={`rounded-lg px-4 pb-4 transition-colors ${criticalMissing.length > 0
+                                        ? "bg-red-50/50 dark:bg-red-900/10"
+                                        : hasAllRecommended
                                             ? "bg-green-50/50 dark:bg-green-900/10"
                                             : "bg-amber-50/50 dark:bg-amber-900/10"
-                                    }`}
+                                        }`}
                                 >
                                     <div className="flex items-center gap-3 mb-3">
                                         {isProfileComplete && hasAllRecommended ? (
@@ -387,26 +395,26 @@ export function ApplicationSheet({
                                             )}
                                             {(criticalMissing.length > 0 ||
                                                 recommendedMissing.length > 0) && (
-                                                <Button
-                                                    variant={
-                                                        criticalMissing.length > 0
-                                                            ? "default"
-                                                            : "outline"
-                                                    }
-                                                    size="sm"
-                                                    className="w-full"
-                                                    onClick={() => {
-                                                        onOpenChange(false);
-                                                        router.push(
-                                                            "/profile?update=true"
-                                                        );
-                                                    }}
-                                                >
-                                                    {criticalMissing.length > 0
-                                                        ? "Complete Required Information"
-                                                        : "Improve Your Profile"}
-                                                </Button>
-                                            )}
+                                                    <Button
+                                                        variant={
+                                                            criticalMissing.length > 0
+                                                                ? "default"
+                                                                : "outline"
+                                                        }
+                                                        size="sm"
+                                                        className="w-full"
+                                                        onClick={() => {
+                                                            onOpenChange(false);
+                                                            router.push(
+                                                                "/profile?update=true"
+                                                            );
+                                                        }}
+                                                    >
+                                                        {criticalMissing.length > 0
+                                                            ? "Complete Required Information"
+                                                            : "Improve Your Profile"}
+                                                    </Button>
+                                                )}
                                         </div>
                                     )}
                                 </div>
@@ -426,7 +434,7 @@ export function ApplicationSheet({
                                             </span>
                                             <p className="font-medium mt-1">
                                                 {profile?.firstName &&
-                                                profile?.lastName
+                                                    profile?.lastName
                                                     ? `${profile.firstName} ${profile.lastName}`
                                                     : "Not provided"}
                                             </p>
@@ -624,8 +632,8 @@ export function ApplicationSheet({
                                                 {applicationError}
                                             </p>
                                             <div className="flex gap-2 pt-1">
-                                                <Button 
-                                                    variant="outline" 
+                                                <Button
+                                                    variant="outline"
                                                     size="sm"
                                                     onClick={() => setApplicationError(null)}
                                                     className="h-8 text-xs"
@@ -633,8 +641,8 @@ export function ApplicationSheet({
                                                     Dismiss
                                                 </Button>
                                                 {applicationError.includes("local automation server") && (
-                                                    <Button 
-                                                        variant="outline" 
+                                                    <Button
+                                                        variant="outline"
                                                         size="sm"
                                                         onClick={handleApply}
                                                         disabled={applying}
@@ -644,8 +652,8 @@ export function ApplicationSheet({
                                                     </Button>
                                                 )}
                                                 {(applicationError.includes("profile") || applicationError.includes("resume")) && (
-                                                    <Button 
-                                                        variant="outline" 
+                                                    <Button
+                                                        variant="outline"
                                                         size="sm"
                                                         onClick={() => {
                                                             onOpenChange(false);

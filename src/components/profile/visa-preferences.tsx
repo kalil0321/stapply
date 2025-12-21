@@ -46,6 +46,21 @@ export function VisaPreferences({ register, errors }: VisaPreferencesProps) {
 
                     <div className="flex items-center">
                         <input
+                            {...register("requiresUsVisa")}
+                            type="checkbox"
+                            id="requiresUsVisa"
+                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label
+                            htmlFor="requiresUsVisa"
+                            className="text-sm text-gray-700"
+                        >
+                            Requires US visa
+                        </label>
+                    </div>
+
+                    <div className="flex items-center">
+                        <input
                             {...register("requiresUkVisa")}
                             type="checkbox"
                             id="requiresUkVisa"
@@ -71,6 +86,21 @@ export function VisaPreferences({ register, errors }: VisaPreferencesProps) {
                             className="text-sm text-gray-700"
                         >
                             Requires CH visa
+                        </label>
+                    </div>
+
+                    <div className="flex items-center">
+                        <input
+                            {...register("requiresCaVisa")}
+                            type="checkbox"
+                            id="requiresCaVisa"
+                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label
+                            htmlFor="requiresCaVisa"
+                            className="text-sm text-gray-700"
+                        >
+                            Requires Canada visa
                         </label>
                     </div>
 

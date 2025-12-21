@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
             // For example, using a background job service or webhook
         }
 
-        // Check if user has already applied to this job
+        // Check if user has already applied to this job (for notification only)
         const [existingApplication] = await db
             .select()
             .from(applications)
@@ -77,12 +77,7 @@ export async function POST(req: NextRequest) {
             )
             .limit(1);
 
-        if (existingApplication) {
-            return NextResponse.json(
-                { error: "You have already applied to this job" },
-                { status: 409 }
-            );
-        }
+        const alreadyApplied = !!existingApplication;
 
         // Generate a task ID for tracking
         if (!process.env.BROWSER_USE_API_KEY) {
@@ -255,6 +250,7 @@ Please use the provided user information to fill in any application forms automa
                 existingJob.length > 0
                     ? "Application created successfully!"
                     : "Application created! Job details will be updated shortly.",
+            alreadyApplied
         });
     } catch (error) {
         console.error("Error creating application from URL:", error);

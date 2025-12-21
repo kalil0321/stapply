@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Check if user has already applied to this job
+        // Check if user has already applied to this job (for notification only)
         const [existingApplication] = await db
             .select()
             .from(applications)
@@ -48,12 +48,7 @@ export async function POST(req: NextRequest) {
             )
             .limit(1);
 
-        if (existingApplication) {
-            return NextResponse.json(
-                { error: "You have already applied to this job" },
-                { status: 409 }
-            );
-        }
+        const alreadyApplied = !!existingApplication;
 
         // Get user profile data
         const [userProfile] = await db
@@ -77,17 +72,25 @@ export async function POST(req: NextRequest) {
         }
 
         if (isLocal) {
-            const response = await fetch('http://localhost:3001/apply-job', {
+            const FLASK_SERVER_URL = process.env.FLASK_SERVER_URL || "http://localhost:3001";
+
+            const response = await fetch(`${FLASK_SERVER_URL}/apply-job`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ job_url: jobExists.link, instructions, resume_url: userProfile.resumeUrl, profile: userProfile }),
+                body: JSON.stringify({
+                    job_url: jobExists.link,
+                    instructions,
+                    resume_url: userProfile.resumeUrl,
+                    profile: userProfile
+                }),
             });
 
             if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
                 return NextResponse.json(
-                    { error: "Failed to apply to job through local server" },
+                    { error: errorData.error || "Failed to apply to job through local server" },
                     { status: 500 }
                 );
             }
@@ -95,23 +98,51 @@ export async function POST(req: NextRequest) {
             const data = await response.json();
 
             // Store the application in the database
-            // const [newApplication] = await db
-            //     .insert(applications)
-            //     .values({
-            //         userId,
-            //         jobId,
-            //         // steel session id as task id
-            //         taskId: data.task_id,
-            //     })
-            //     .returning();
+            const [newApplication] = await db
+                .insert(applications)
+                .values({
+                    userId,
+                    jobId,
+                    taskId: data.task_id,
+                })
+                .returning();
 
-            // console.log(`[Application ${jobId}] Application saved with ID: ${newApplication.id}`);
+            console.log(`[Application ${jobId}] Application saved with ID: ${newApplication.id}`);
 
-            return NextResponse.json({ 
+            // Return the created application with job details
+            const [applicationWithJob] = await db
+                .select({
+                    id: applications.id,
+                    userId: applications.userId,
+                    jobId: applications.jobId,
+                    taskId: applications.taskId,
+                    createdAt: applications.createdAt,
+                    updatedAt: applications.updatedAt,
+                    job: {
+                        id: jobs.id,
+                        link: jobs.link,
+                        title: jobs.title,
+                        location: jobs.location,
+                        company: jobs.company,
+                        description: jobs.description,
+                        employment_type: jobs.employmentType,
+                        industry: jobs.industry,
+                        posted_at: jobs.postedAt,
+                        created_at: jobs.createdAt,
+                    },
+                })
+                .from(applications)
+                .innerJoin(jobs, eq(applications.jobId, jobs.id))
+                .where(eq(applications.id, newApplication.id))
+                .limit(1);
+
+            return NextResponse.json({
+                application: applicationWithJob,
                 live_url: data.live_url,
                 fallback_url: data.fallback_url,
                 replay_url: data.replay_url,
-                task_id: data.task_id
+                task_id: data.task_id,
+                alreadyApplied
             });
         }
 
@@ -284,7 +315,10 @@ export async function POST(req: NextRequest) {
             .limit(1);
 
         console.log(`[Application ${jobId}] Application process completed successfully`);
-        return NextResponse.json({ application: applicationWithJob });
+        return NextResponse.json({
+            application: applicationWithJob,
+            alreadyApplied: false
+        });
     } catch (error) {
         console.error("Error creating application:", error);
         return NextResponse.json(

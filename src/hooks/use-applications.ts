@@ -39,16 +39,19 @@ export function useApplications() {
 
             if (!response.ok) {
                 const error = await response.json();
-                if (response.status === 409) {
-                    toast.error("You have already applied to this job");
-                } else {
-                    throw new Error(
-                        error.error || "Failed to create application"
-                    );
-                }
+                throw new Error(
+                    error.error || "Failed to create application"
+                );
             }
 
-            return response.json();
+            const data = await response.json();
+
+            // Show notification if already applied
+            if (data.alreadyApplied) {
+                toast.warning("You have already applied to this job. Creating a new application.");
+            }
+
+            return data;
         },
         onSuccess: async () => {
             toast.success("Application submitted successfully!");

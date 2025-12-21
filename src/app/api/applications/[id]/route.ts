@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth/helpers";
 import { db } from "@/db/drizzle";
 import { applications, jobs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { BrowserUseClient } from "browser-use-sdk";
 
 export async function GET(
     req: NextRequest,
@@ -25,7 +24,7 @@ export async function GET(
         }
 
         console.log("Fetching application with ID:", id, "for user:", userId);
-        
+
         // Fetch the application with job details
         const [application] = await db
             .select({
@@ -54,7 +53,7 @@ export async function GET(
             .limit(1);
 
         console.log("Database query result:", application ? "Found" : "Not found");
-        
+
         if (!application) {
             // Let's also try to find the application without the job join to see if that's the issue
             const [appOnly] = await db
@@ -62,9 +61,9 @@ export async function GET(
                 .from(applications)
                 .where(eq(applications.id, id))
                 .limit(1);
-            
+
             console.log("Application exists without job join:", appOnly ? "Yes" : "No");
-            
+
             return NextResponse.json(
                 { error: `Application not found. ID: ${id}, User: ${userId}` },
                 { status: 404 }
@@ -80,52 +79,102 @@ export async function GET(
         let output = null;
         let isSuccess = null;
         let status = null;
+        let liveUrl = null;
+        let fallbackUrl = null;
+        let replayUrl = null;
 
         try {
-            const apiKey = process.env.BROWSER_USE_API_KEY;
-            if (!apiKey) {
-                throw new Error("BROWSER_USE_API_KEY not configured");
-            }
-            
-            const browser = new BrowserUseClient({
-                apiKey: apiKey,
+            // Try local Flask server first
+            const FLASK_SERVER_URL = process.env.FLASK_SERVER_URL || "http://localhost:3001";
+
+            // Check if task exists in Flask server
+            const taskStatusResponse = await fetch(`${FLASK_SERVER_URL}/api/task-ready/${application.taskId}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
             });
 
-            const task = await browser.tasks.getTask(application.taskId);
-            console.log("BrowserUse task:", JSON.stringify(task, null, 2));
-            
-            if (task && task.sessionId) {
-                const session = await browser.sessions.getSession(task.sessionId);
-                url = session?.liveUrl || session?.publicShareUrl || null;
-                if (!url) {
+            if (taskStatusResponse.ok) {
+                // Task exists in local Flask server
+                const taskStatus = await taskStatusResponse.json();
+                status = taskStatus.status || (taskStatus.ready ? "running" : "starting");
+
+                // Get task status from Flask server
+                const taskStatusEndpoint = await fetch(`${FLASK_SERVER_URL}/task-status/${application.taskId}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (taskStatusEndpoint.ok) {
+                    const taskData = await taskStatusEndpoint.json();
+                    output = taskData.result || taskData.message || null;
+                    isSuccess = taskData.status === "completed" ? true : (taskData.status === "failed" ? false : null);
+                    status = taskData.status || status;
+                }
+
+                // Generate URLs for local Flask server viewer
+                liveUrl = `${FLASK_SERVER_URL}/live-stream/${application.taskId}`;
+                fallbackUrl = `${FLASK_SERVER_URL}/screencast/${application.taskId}`;
+                replayUrl = `${FLASK_SERVER_URL}/replay/${application.taskId}`;
+
+                console.log("Local Flask server task found:", application.taskId);
+            } else {
+                // Fallback to BrowserUse API if configured (for backward compatibility)
+                const apiKey = process.env.BROWSER_USE_API_KEY;
+                if (apiKey) {
                     try {
-                        if (task.sessionId) {
-                            const shareView = await browser.sessions.createSessionPublicShare(task.sessionId);
-                            url = shareView?.shareUrl || null;
+                        const { BrowserUseClient } = await import("browser-use-sdk");
+                        const browser = new BrowserUseClient({
+                            apiKey: apiKey,
+                        });
+
+                        const task = await browser.tasks.getTask(application.taskId);
+                        console.log("BrowserUse task:", JSON.stringify(task, null, 2));
+
+                        if (task && task.sessionId) {
+                            const session = await browser.sessions.getSession(task.sessionId);
+                            url = session?.liveUrl || session?.publicShareUrl || null;
+                            if (!url) {
+                                try {
+                                    if (task.sessionId) {
+                                        const shareView = await browser.sessions.createSessionPublicShare(task.sessionId);
+                                        url = shareView?.shareUrl || null;
+                                    }
+                                } catch (shareError) {
+                                    console.warn("Failed to create public share:", shareError);
+                                }
+                            }
                         }
-                    } catch (shareError) {
-                        console.warn("Failed to create public share:", shareError);
+
+                        output = task?.output || null;
+                        isSuccess = task?.isSuccess ?? null;
+                        status = task?.status || null;
+
+                        console.log("BrowserUse liveUrl:", JSON.stringify(url, null, 2));
+                    } catch (importError) {
+                        console.warn("BrowserUse SDK not available:", importError);
                     }
                 }
             }
-            
-            output = task?.output || null;
-            isSuccess = task?.isSuccess ?? null;
-            status = task?.status || null;
-            
-            console.log("BrowserUse liveUrl:", JSON.stringify(url, null, 2));
         } catch (browserError) {
-            console.error("BrowserUse API error:", browserError);
-            // Don't fail the entire request if BrowserUse API fails
+            console.error("Browser automation API error:", browserError);
+            // Don't fail the entire request if browser API fails
             // Just return the application data without browser session info
         }
 
-        return NextResponse.json({ 
-            application, 
-            url, 
-            output, 
-            isSuccess, 
-            status 
+        return NextResponse.json({
+            application,
+            url,
+            output,
+            isSuccess,
+            status,
+            liveUrl,
+            fallbackUrl,
+            replayUrl,
+            taskId: application.taskId
         });
     } catch (error) {
         console.error("Error fetching application:", error);
@@ -157,7 +206,7 @@ export async function DELETE(
         }
 
         console.log("Deleting application with ID:", id, "for user:", userId);
-        
+
         // First, verify the application exists and belongs to the user
         const [existingApplication] = await db
             .select()
@@ -179,20 +228,31 @@ export async function DELETE(
 
         // Optional: Cancel the browser automation task if it's still running
         try {
-            const apiKey = process.env.BROWSER_USE_API_KEY;
-            if (apiKey && existingApplication.taskId) {
-                const browser = new BrowserUseClient({
-                    apiKey: apiKey,
-                });
+            // Try local Flask server first
+            const FLASK_SERVER_URL = process.env.FLASK_SERVER_URL || "http://localhost:3001";
+            if (existingApplication.taskId) {
+                // Check if task exists in Flask server and could be stopped
+                // Note: Flask server doesn't have a stop endpoint yet, but we log it
+                console.log("Task ID for deletion:", existingApplication.taskId);
 
-                // Try to get the task to check its status
-                const task = await browser.tasks.getTask(existingApplication.taskId);
-                console.log("Task status before deletion:", task?.status);
-                
-                // If task is still running, we could potentially cancel it
-                // Note: BrowserUse SDK might not have a cancel method, but we log it for now
-                if (task && ['pending', 'in_progress'].includes(task.status)) {
-                    console.log("Task is still running, but continuing with deletion");
+                // Fallback to BrowserUse API if configured
+                const apiKey = process.env.BROWSER_USE_API_KEY;
+                if (apiKey) {
+                    try {
+                        const { BrowserUseClient } = await import("browser-use-sdk");
+                        const browser = new BrowserUseClient({
+                            apiKey: apiKey,
+                        });
+
+                        const task = await browser.tasks.getTask(existingApplication.taskId);
+                        console.log("Task status before deletion:", task?.status);
+
+                        if (task && ['pending', 'in_progress'].includes(task.status)) {
+                            console.log("Task is still running, but continuing with deletion");
+                        }
+                    } catch (importError) {
+                        console.warn("BrowserUse SDK not available:", importError);
+                    }
                 }
             }
         } catch (browserError) {
@@ -206,10 +266,10 @@ export async function DELETE(
             .where(eq(applications.id, id));
 
         console.log("Application deleted successfully:", id);
-        
-        return NextResponse.json({ 
+
+        return NextResponse.json({
             message: "Application deleted successfully",
-            id: id 
+            id: id
         });
     } catch (error) {
         console.error("Error deleting application:", error);

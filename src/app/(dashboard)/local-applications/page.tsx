@@ -182,7 +182,7 @@ export default function LocalApplicationsPage() {
                         <CardContent className="space-y-4">
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <Button asChild className="flex-1">
-                                    <Link href="/search">
+                                    <Link href="/jobs">
                                         <SearchIcon className="w-4 h-4 mr-2" />
                                         Find Jobs to Apply To
                                         <ArrowRightIcon className="w-4 h-4 ml-2" />

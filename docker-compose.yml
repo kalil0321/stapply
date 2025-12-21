@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+    postgres:
+        image: postgres:16
+        container_name: stapply-postgres
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: stapply
+            POSTGRES_PASSWORD: stapply
+            POSTGRES_DB: stapply
+        ports:
+            - "5432:5432"
+        volumes:
+            - stapply_pgdata:/var/lib/postgresql/data
+            - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+    stapply_pgdata:

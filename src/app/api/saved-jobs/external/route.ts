@@ -81,7 +81,7 @@ async function processJob(jobData: JobData, userId: string) {
                     link: jobData.link,
                     description: jobData.description || null,
                     employmentType: jobData.employmentType || null,
-                    addedByUser: true,
+                    industry: "AI/ML",
                     source: "external",
                 })
                 .returning();
@@ -148,8 +148,14 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { jobLink, mode } = body;
+        const { jobLink, mode, jobData: providedJobData } = body;
 
+        // If job data is provided directly (from CSV), use it
+        if (providedJobData) {
+            return await processJob(providedJobData, userId);
+        }
+
+        // Otherwise, scrape it
         if (mode !== "individual") {
             return NextResponse.json(
                 { error: "Only individual mode is supported" },
@@ -170,6 +176,34 @@ export async function POST(req: NextRequest) {
         console.error("Error adding external job:", error);
         return NextResponse.json(
             { error: "Failed to add external job" },
+            { status: 500 }
+        );
+    }
+}
+
+// Get saved job links for checking if jobs are already saved
+export async function GET() {
+    const { userId } = await auth();
+    if (!userId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+        const userSavedJobs = await db
+            .select({
+                jobLink: jobs.link,
+            })
+            .from(savedJobs)
+            .innerJoin(jobs, eq(savedJobs.jobId, jobs.id))
+            .where(eq(savedJobs.userId, userId));
+
+        const savedJobLinks = userSavedJobs.map(sj => sj.jobLink);
+
+        return NextResponse.json({ savedJobLinks });
+    } catch (error) {
+        console.error("Error fetching saved job links:", error);
+        return NextResponse.json(
+            { error: "Failed to fetch saved jobs" },
             { status: 500 }
         );
     }

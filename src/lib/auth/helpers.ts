@@ -1,20 +1,9 @@
-import { auth as authServer } from "./server";
-import { headers } from "next/headers";
+import { LOCAL_USER } from "./local";
 
 export const getUserId = async () => {
-    const session = await authServer.api.getSession({
-        headers: await headers(),
-    });
-
-    return session?.user?.id;
+    return LOCAL_USER.id;
 };
 
 export const auth = async () => {
-    const session = await authServer.api.getSession({
-        headers: await headers(),
-    });
-
-    console.log("USER ID RETURNED", session?.user?.id);
-
-    return { userId: session?.user?.id };
+    return { userId: LOCAL_USER.id };
 };

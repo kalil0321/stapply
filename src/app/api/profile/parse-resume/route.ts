@@ -7,6 +7,7 @@ import { convertToModelMessages, ModelMessage, generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import fs from "fs";
+import { readFileFromStorage, getFileNameFromUrl } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
     const { userId } = await auth();
@@ -32,16 +33,26 @@ export async function POST(req: NextRequest) {
                 );
             }
 
-            // Fetch the resume file from the URL
-            const response = await fetch(resumeUrl);
-            if (!response.ok) {
-                return NextResponse.json(
-                    { error: "Failed to fetch resume" },
-                    { status: 400 }
-                );
+            // Check if it's a local storage URL
+            const fileName = getFileNameFromUrl(resumeUrl);
+            if (fileName) {
+                // Read from local storage
+                const fileBuffer = await readFileFromStorage(fileName);
+                resumeData = fileBuffer.buffer;
+            } else {
+                // Fetch from external URL
+                const fullUrl = resumeUrl.startsWith("http")
+                    ? resumeUrl
+                    : `${req.nextUrl.origin}${resumeUrl}`;
+                const response = await fetch(fullUrl);
+                if (!response.ok) {
+                    return NextResponse.json(
+                        { error: "Failed to fetch resume" },
+                        { status: 400 }
+                    );
+                }
+                resumeData = await response.arrayBuffer();
             }
-
-            resumeData = await response.arrayBuffer();
         } else {
             return NextResponse.json(
                 {
