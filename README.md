@@ -56,3 +56,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python bu.py
 ```
+
+## How to use
+
+- Load the /jobs page
+- Save jobs you're intersterd by (click the bookmark icon)
+- Go to profile and fill profile & upload resume
+- Go to saved jobs page
+- Apply to the jobs
+- Go to applications and click applications to see the agent applying live
