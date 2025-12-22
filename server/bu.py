@@ -24,7 +24,6 @@ load_dotenv()
 try:
     import aiohttp  # type: ignore
     from playwright.async_api import Browser, Page, async_playwright  # type: ignore
-    from playwright_stealth import Stealth
 except ImportError as e:
     print(f"❌ Missing dependencies for this example: {e}")
     print("This example requires: playwright aiohttp")
@@ -194,22 +193,11 @@ async def connect_playwright_to_cdp(cdp_url: str):
     """
     Connect Playwright to the same Chrome instance Browser-Use is using.
     This enables custom actions to use Playwright functions.
-    Apply stealth to all contexts to avoid detection.
     """
     global playwright_browser, playwright_page
 
     playwright = await async_playwright().start()
     playwright_browser = await playwright.chromium.connect_over_cdp(cdp_url)
-
-    # Apply stealth to all existing contexts
-    stealth = Stealth()
-    if playwright_browser and playwright_browser.contexts:
-        for context in playwright_browser.contexts:
-            try:
-                await stealth.apply_stealth_async(context)
-                print(f"✅ Applied stealth to existing context")
-            except Exception as e:
-                print(f"⚠️  Failed to apply stealth to context: {e}")
 
     # Get or create a page
     if (
@@ -220,7 +208,6 @@ async def connect_playwright_to_cdp(cdp_url: str):
         playwright_page = playwright_browser.contexts[0].pages[0]
     elif playwright_browser:
         context = await playwright_browser.new_context()
-        await stealth.apply_stealth_async(context)
         playwright_page = await context.new_page()
 
 
@@ -1752,22 +1739,6 @@ async def run_agent(
         # Step 3: Create Browser-Use session connected to same Chrome
         # Note: BrowserSession will use the same Chrome instance via CDP
         browser_session = BrowserSession(cdp_url=actual_cdp_url, headless=False)
-
-        # Apply stealth to all contexts after BrowserSession is created
-        # This ensures browser-use's contexts also have stealth applied
-        if playwright_browser:
-            stealth = Stealth()
-            # Wait a moment for BrowserSession to create its context
-            await asyncio.sleep(0.5)
-
-            # Apply stealth to all contexts (including any BrowserSession created)
-            if playwright_browser.contexts:
-                for context in playwright_browser.contexts:
-                    try:
-                        await stealth.apply_stealth_async(context)
-                        print(f"✅ Applied stealth to context for browser-use")
-                    except Exception as e:
-                        print(f"⚠️  Failed to apply stealth to context: {e}")
 
         # Download resume file if URL is provided - REQUIRED, fail if can't download
         local_resume_path = None
