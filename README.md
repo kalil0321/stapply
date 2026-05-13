@@ -33,11 +33,7 @@ Set `DATABASE_URL` in `.env` (see `env.example`).
 
 ## Job data
 
-Get access to a dataset of thousands of jobs [here](https://storage.stapply.ai/jobs.csv)(https://storage.stapply.ai/jobs.csv).
-
-## Cloud version
-
-I plan to have a cloud version, [join the waitlist](https://stapply.ai/waitlist)
+Get access to a dataset of thousands of jobs at https://map.stapply.ai/ai.csv or https://github/kalil0321/ats-scrapers.
 
 ## Why Stapply?
 ---
